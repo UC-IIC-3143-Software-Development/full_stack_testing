@@ -44,8 +44,10 @@ Reglas de negocio mínimas que simula (para que los flujos sean realistas, no pa
 BOOK-R1, BOOK-R2, BOOK-R3, BOOK-R4, BOOK-R5, BOOK-R6, LOAN-R1, LOAN-R2, LOAN-R3, LOAN-R4, LOAN-R5,
 LOAN-R6, LOAN-R7, RENEW-R1, RENEW-R2, RENEW-R3 y RENEW-R4. Cuando hay varios conflictos a la vez, el
 orden al pedir es: duplicado (LOAN-R4), límite (LOAN-R2) y copias (LOAN-R1). Al renovar es: devuelto
-(RENEW-R3), ya renovado (RENEW-R2) y vencido (RENEW-R3). SPEC-LIB-03 no define ese orden, así que el
-mock lo fija aquí.
+(RENEW-R3), ya renovado (RENEW-R2) y vencido (RENEW-R3). El orden y los textos `detail` vienen de
+SPEC-LIB-03 (Orden de los errores al renovar), igual que en el backend. Los 409 de renovar usan el
+schema `RenewalProblem` del contrato. Los textos de los 400 son los mismos del backend (validador del
+contrato y dominio), así la UI muestra lo mismo con y sin backend.
 
 ## Cómo se prueba esta capa
 

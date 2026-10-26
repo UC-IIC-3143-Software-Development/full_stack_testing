@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { apiClient } from '@/shared/api/client'
-import { toApiFailure, type ApiFailure } from '@/shared/api/problem'
+import { fieldErrorsOf, toApiFailure, type ApiFailure } from '@/shared/api/problem'
 import type { Loan } from '@/shared/api/types'
 
 export type CreateLoanResult =
@@ -11,7 +11,14 @@ export type CreateLoanResult =
   | {
       ok: false
       failure: ApiFailure
+      /** Errores por campo de un 400 (campo a mensaje), así el componente no importa shared/api. */
+      fieldErrors: Record<string, string>
     }
+
+function failed(error: unknown): CreateLoanResult {
+  const failure = toApiFailure(error)
+  return { ok: false, failure, fieldErrors: fieldErrorsOf(failure) }
+}
 
 /** Registra un préstamo (createLoan). */
 export function useCreateLoan() {
@@ -23,9 +30,9 @@ export function useCreateLoan() {
       const { data, error } = await apiClient.POST('/api/loans', {
         body: { bookId, borrowerEmail },
       })
-      return data ? { ok: true, loan: data } : { ok: false, failure: toApiFailure(error) }
+      return data ? { ok: true, loan: data } : failed(error)
     } catch (error) {
-      return { ok: false, failure: toApiFailure(error) }
+      return failed(error)
     } finally {
       setPending(false)
     }

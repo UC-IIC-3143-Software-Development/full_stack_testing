@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
-import { fieldErrorsOf, type ApiFailure } from '@/shared/api/problem'
+import type { ApiFailure } from '@/shared/api/problem'
 import type { Book } from '@/shared/api/types'
 import { isValidIsbn13 } from '@/shared/domain/isbn'
 import { useCreateBook } from '../hooks/useCreateBook'
@@ -36,11 +36,10 @@ interface FormErrors {
   general?: string
 }
 
-function serverErrors(failure: ApiFailure): FormErrors {
+function serverErrors(failure: ApiFailure, fields: Record<string, string>): FormErrors {
   if (failure.kind === 'problem' && failure.problem.code === 'ISBN_ALREADY_EXISTS') {
     return { fields: { isbn: 'Ya existe un libro con ese ISBN' } }
   }
-  const fields = fieldErrorsOf(failure)
   if (Object.keys(fields).length > 0) return { fields }
   return { fields: {}, general: 'No pudimos guardar el libro. Intenta de nuevo.' }
 }
@@ -79,7 +78,7 @@ export function NewBookForm({ onCreated }: { onCreated: (book: Book) => void }) 
       onCreated(result.book)
       return
     }
-    const { fields, general } = serverErrors(result.failure)
+    const { fields, general } = serverErrors(result.failure, result.fieldErrors)
     setErrors(fields)
     setGeneralError(general ?? null)
   }

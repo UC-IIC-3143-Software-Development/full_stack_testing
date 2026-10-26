@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { BOOK_IDS, type StoredLoan } from '@/mocks/fixtures'
 import { mockStore, server } from '@/mocks/node'
+import type { RenewalErrorCode } from '@/shared/api/types'
 import { LoanList } from './LoanList'
 
 // carla@uc.cl tiene en el mock server un préstamo de cada estado (src/mocks/fixtures.ts),
@@ -26,11 +27,11 @@ async function showCarlaLoans() {
 }
 
 /** server.use() reemplaza el handler solo en este test: así forzamos cada 409 de renewLoan. */
-function respondToRenewWithConflict(code: string) {
+function respondToRenewWithConflict(code: RenewalErrorCode, detail: string = code) {
   server.use(
     http.post('*/api/loans/:loanId/renew', () =>
       HttpResponse.json(
-        { type: 'about:blank', title: 'Conflict', status: 409, code, detail: code },
+        { type: 'about:blank', title: 'Conflict', status: 409, code, detail },
         { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
       ),
     ),
@@ -77,6 +78,16 @@ describe('LoanList', () => {
     expect(within(loanItem('Ficciones')).getByText('Devuelto el')).toBeInTheDocument()
   })
 
+  it('[UI-LOAN-3] al devolver anuncia "Préstamo devuelto" y el foco pasa al título del préstamo', async () => {
+    const user = userEvent.setup()
+    await showCarlaLoans()
+
+    await user.click(within(loanItem('Ficciones')).getByRole('button', { name: /devolver/i }))
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Préstamo devuelto'))
+    expect(within(loanItem('Ficciones')).getByRole('heading', { name: 'Ficciones' })).toHaveFocus()
+  })
+
   it('[UI-LOAN-3] solo los préstamos no devueltos ofrecen "Devolver"', async () => {
     render(<LoanList email="carla@uc.cl" />)
     await screen.findByRole('heading', { name: 'Préstamos de carla@uc.cl' })
@@ -104,7 +115,7 @@ describe('LoanList', () => {
     ])
   })
 
-  it('[UI-RENEW-1] "Renovar" suma 7 días a la fecha de devolución sin recargar y desaparece', async () => {
+  it('[UI-RENEW-1] "Renovar" actualiza la fecha de devolución sin recargar y el botón desaparece', async () => {
     const user = userEvent.setup()
     await showCarlaLoans()
     expect(dueDate('La casa de los espíritus')).toBe('06-03-2026')
@@ -117,6 +128,22 @@ describe('LoanList', () => {
     const item = within(loanItem('La casa de los espíritus'))
     expect(item.queryByRole('button', { name: /renovar/i })).not.toBeInTheDocument()
     expect(item.getByRole('button', { name: /devolver/i })).toBeEnabled()
+  })
+
+  it('[UI-RENEW-1] al renovar anuncia la nueva fecha y el foco pasa a "Devolver" del mismo préstamo', async () => {
+    const user = userEvent.setup()
+    await showCarlaLoans()
+
+    await user.click(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /renovar/i }),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Préstamo renovado hasta 13-03-2026'),
+    )
+    expect(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /devolver/i }),
+    ).toHaveFocus()
   })
 
   it('[UI-RENEW-2] RENEWAL_LIMIT_REACHED muestra "Este préstamo ya fue renovado"', async () => {
@@ -145,5 +172,19 @@ describe('LoanList', () => {
     expect(
       await within(loanItem('La casa de los espíritus')).findByRole('alert'),
     ).toHaveTextContent('No puedes renovar un préstamo vencido')
+  })
+
+  it('[UI-RENEW-2] ALREADY_RETURNED muestra el detail de la API', async () => {
+    respondToRenewWithConflict('ALREADY_RETURNED', 'El préstamo ya fue devuelto')
+    const user = userEvent.setup()
+    await showCarlaLoans()
+
+    await user.click(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /renovar/i }),
+    )
+
+    expect(
+      await within(loanItem('La casa de los espíritus')).findByRole('alert'),
+    ).toHaveTextContent('El préstamo ya fue devuelto')
   })
 })

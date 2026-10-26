@@ -229,12 +229,34 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
             errors?: components["schemas"]["FieldError"][];
         };
+        /**
+         * @description Error 409 de renewLoan, con el mismo formato que Problem (RFC 9457).
+         *     Tiene su propio enum de códigos porque agregar valores al enum compartido ErrorCode
+         *     cambia las respuestas de todos los endpoints y oasdiff lo marca como cambio que rompe
+         *     compatibilidad (un cliente con un switch exhaustivo sobre code dejaría de compilar).
+         */
+        RenewalProblem: {
+            /**
+             * Format: uri-reference
+             * @example about:blank
+             */
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
+            code: components["schemas"]["RenewalErrorCode"];
+        };
+        /**
+         * @description Códigos de rechazo de una renovación (RENEW-R2 y RENEW-R3).
+         * @enum {string}
+         */
+        RenewalErrorCode: "ALREADY_RETURNED" | "RENEWAL_LIMIT_REACHED" | "LOAN_OVERDUE";
         FieldError: {
             field: string;
             message: string;
         };
         /** @enum {string} */
-        ErrorCode: "VALIDATION_ERROR" | "BOOK_NOT_FOUND" | "LOAN_NOT_FOUND" | "ISBN_ALREADY_EXISTS" | "NO_COPIES_AVAILABLE" | "LOAN_LIMIT_REACHED" | "DUPLICATE_LOAN" | "ALREADY_RETURNED" | "RENEWAL_LIMIT_REACHED" | "LOAN_OVERDUE";
+        ErrorCode: "VALIDATION_ERROR" | "BOOK_NOT_FOUND" | "LOAN_NOT_FOUND" | "ISBN_ALREADY_EXISTS" | "NO_COPIES_AVAILABLE" | "LOAN_LIMIT_REACHED" | "DUPLICATE_LOAN" | "ALREADY_RETURNED";
     };
     responses: {
         /** @description La solicitud no cumple el contrato */
@@ -274,6 +296,24 @@ export interface components {
                  *       "status": 404,
                  *       "code": "BOOK_NOT_FOUND",
                  *       "detail": "No existe el libro solicitado"
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description El préstamo no existe */
+        LoanNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "type": "about:blank",
+                 *       "title": "Not Found",
+                 *       "status": 404,
+                 *       "code": "LOAN_NOT_FOUND",
+                 *       "detail": "No existe el préstamo solicitado"
                  *     }
                  */
                 "application/problem+json": components["schemas"]["Problem"];
@@ -522,7 +562,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
-            404: components["responses"]["NotFound"];
+            404: components["responses"]["LoanNotFound"];
             /** @description El préstamo ya fue devuelto (LOAN-R5) */
             409: {
                 headers: {
@@ -565,8 +605,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
-            404: components["responses"]["NotFound"];
-            /** @description No se puede renovar: ya se renovó (RENEW-R2), está vencido o ya se devolvió (RENEW-R3). */
+            404: components["responses"]["LoanNotFound"];
+            /**
+             * @description No se puede renovar: ya se renovó (RENEW-R2), está vencido o ya se devolvió (RENEW-R3).
+             *     Orden si se incumplen varias reglas: ALREADY_RETURNED, RENEWAL_LIMIT_REACHED y LOAN_OVERDUE.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -581,7 +624,7 @@ export interface operations {
                      *       "detail": "El préstamo ya fue renovado"
                      *     }
                      */
-                    "application/problem+json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["RenewalProblem"];
                 };
             };
         };

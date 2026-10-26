@@ -12,7 +12,7 @@ Mostrar el catálogo, buscar libros, ver el detalle de un libro y agregar libros
 
 ## Puede depender de / no puede depender de
 
-- Puede: `shared/domain` (ISBN), `shared/api` (solo los hooks usan el cliente, los componentes solo importan tipos).
+- Puede: `shared/domain` (ISBN), `shared/api` (solo desde hooks, los componentes solo importan tipos, ARCH-R7).
 - No puede: llamar `fetch` directo (ARCH-R7), importar `mocks` (ARCH-R8), importar `next/navigation`
   en componentes que se prueban aislados (la navegación la decide la ruta, por ejemplo `onCreated`).
 
@@ -39,6 +39,7 @@ Mostrar el catálogo, buscar libros, ver el detalle de un libro y agregar libros
 | UI-CAT-3 | `BookCard`: botón deshabilitado si no hay copias                          | `BookCard.test.tsx`, `FLOW-CAT-02`, `catalog.style.spec.ts`                            |
 | UI-CAT-4 | `BookList.module.css` (grilla) y `BookCard.module.css` (insignia)         | `catalog.layout.spec.ts`, `catalog.visual.spec.ts`                                     |
 | UI-CAT-5 | `NewBookForm`: valida BOOK-R1 antes de enviar y muestra errores por campo | `NewBookForm.test.tsx`, `FLOW-CAT-03`, `FLOW-CAT-04`                                   |
+| UI-CAT-6 | `BookList`: aviso `role="alert"` si no puede cargar el catálogo           | `BookList.test.tsx`                                                                    |
 
 ## Cómo se prueba esta capa
 

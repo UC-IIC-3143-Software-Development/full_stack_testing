@@ -115,7 +115,8 @@ E2E_BASE_URL=http://localhost:3000 npm run test:e2e:smoke
 ```
 
 No levanta servidor. Un `globalSetup` siembra por la API los libros de las fixtures (si no existen),
-deja Ficciones con 1 copia disponible y devuelve los préstamos que `ana@uc.cl` dejó de otra corrida.
+deja Ficciones con 1 copia disponible y La casa de los espíritus agotado (con préstamos de
+`carla@uc.cl`) y devuelve los préstamos que `ana@uc.cl` dejó de otra corrida.
 El backend debe correr con `CLOCK_FIXED_NOW=2026-03-02T12:00:00Z` para que coincida la fecha.
 
 ### Líneas base de la regresión visual

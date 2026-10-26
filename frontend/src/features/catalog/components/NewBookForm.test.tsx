@@ -49,12 +49,13 @@ describe('NewBookForm', () => {
   })
 
   it('[UI-CAT-5] muestra los errores 400 del servidor junto a cada campo', async () => {
-    // El navegador solo valida el ISBN. El autor en blanco lo rechaza el servidor (BOOK-R3).
+    // El navegador solo valida el ISBN. El autor en blanco lo rechaza el servidor (BOOK-R3)
+    // con el mismo texto que el backend (backend/src/books/domain/book.ts).
     render(<NewBookForm onCreated={() => {}} />)
     await fillForm({ isbn: '978-84-376-0494-7', title: 'Rayuela', author: ' ' })
     await waitFor(() =>
       expect(screen.getByLabelText('Autor')).toHaveAccessibleDescription(
-        'El autor debe tener entre 1 y 120 caracteres',
+        'El autor no puede estar vacío',
       ),
     )
   })

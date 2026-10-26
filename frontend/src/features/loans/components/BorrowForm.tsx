@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { fieldErrorsOf } from '@/shared/api/problem'
 import type { Loan } from '@/shared/api/types'
 import { formatDate } from '@/shared/domain/date-format'
 import { GENERIC_ERROR_MESSAGE, loanConflictMessage } from './loan-error-messages'
@@ -37,11 +36,11 @@ export function BorrowForm({ bookId, disabled = false, onBorrowed }: BorrowFormP
       onBorrowed?.(result.loan)
       return
     }
-    const { failure } = result
+    const { failure, fieldErrors } = result
     if (failure.kind === 'problem' && failure.problem.status === 409) {
       setError(loanConflictMessage(failure.problem.code))
-    } else if (fieldErrorsOf(failure).borrowerEmail) {
-      setEmailError(fieldErrorsOf(failure).borrowerEmail)
+    } else if (fieldErrors.borrowerEmail) {
+      setEmailError(fieldErrors.borrowerEmail)
     } else if (failure.kind === 'problem' && failure.problem.detail) {
       setError(failure.problem.detail)
     } else {

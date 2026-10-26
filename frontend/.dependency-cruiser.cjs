@@ -26,11 +26,11 @@ module.exports = {
     {
       name: 'ARCH-R7-componentes-usan-hooks',
       comment:
-        'Los componentes no llaman a la API: usan hooks de su feature. Importar solo tipos está permitido.',
+        'Los componentes no usan shared/api: todo pasa por los hooks de su feature. Importar solo tipos está permitido.',
       severity: 'error',
       from: { path: '^src/features/[^/]+/components' },
       to: {
-        path: ['^src/shared/api/(client|use-api-query)', '(^|/)node_modules/openapi-fetch/'],
+        path: ['^src/shared/api', '(^|/)node_modules/openapi-fetch/'],
         dependencyTypesNot: ['type-only'],
       },
     },

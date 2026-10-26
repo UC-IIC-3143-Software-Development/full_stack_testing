@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { apiClient } from '@/shared/api/client'
-import { toApiFailure, type ApiFailure } from '@/shared/api/problem'
+import { fieldErrorsOf, toApiFailure, type ApiFailure } from '@/shared/api/problem'
 import type { Book, NewBook } from '@/shared/api/types'
 
 export type CreateBookResult =
@@ -11,7 +11,14 @@ export type CreateBookResult =
   | {
       ok: false
       failure: ApiFailure
+      /** Errores por campo de un 400 (campo a mensaje), así el componente no importa shared/api. */
+      fieldErrors: Record<string, string>
     }
+
+function failed(error: unknown): CreateBookResult {
+  const failure = toApiFailure(error)
+  return { ok: false, failure, fieldErrors: fieldErrorsOf(failure) }
+}
 
 /** Agrega un libro (createBook) y expone si hay una solicitud en curso. */
 export function useCreateBook() {
@@ -21,9 +28,9 @@ export function useCreateBook() {
     setPending(true)
     try {
       const { data, error } = await apiClient.POST('/api/books', { body: input })
-      return data ? { ok: true, book: data } : { ok: false, failure: toApiFailure(error) }
+      return data ? { ok: true, book: data } : failed(error)
     } catch (error) {
-      return { ok: false, failure: toApiFailure(error) }
+      return failed(error)
     } finally {
       setPending(false)
     }

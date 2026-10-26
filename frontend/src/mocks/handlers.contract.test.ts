@@ -112,19 +112,19 @@ async function expectContract(testCase: ContractCase) {
   const response = await send(testCase.request)
 
   expect(response.status).toBe(testCase.status)
-  const documented = documentedResponse(op, response.status)
   expect(
-    documented,
+    Object.keys(op.operation.responses),
     `${op.operation.operationId} no documenta el status ${response.status}`,
-  ).not.toBeUndefined()
+  ).toContain(String(response.status))
+  const documented = documentedResponse(op, response.status)!
 
   // "application/problem+json" sin parámetros como el charset.
   const mediaType = (response.headers.get('content-type') ?? '').replace(/\s*\u003b.*$/, '')
-  const content = documented!.content?.[mediaType]
   expect(
-    content,
+    Object.keys(documented.content ?? {}),
     `${op.operation.operationId} ${response.status} no documenta ${mediaType}`,
-  ).not.toBeUndefined()
+  ).toContain(mediaType)
+  const content = documented.content![mediaType]
 
   const body: unknown = await response.json()
   const validate = ajv.compile(rewriteRefs(content!.schema))

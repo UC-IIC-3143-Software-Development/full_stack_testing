@@ -30,10 +30,12 @@ describe('BookList', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 
-  it('[UI-CAT-1] avisa cuando no puede cargar el catálogo', async () => {
+  it('[UI-CAT-6] avisa cuando no puede cargar el catálogo', async () => {
     // Override puntual del handler: simula una caída de red solo en este test.
     server.use(http.get('*/api/books', () => HttpResponse.error()))
     render(<BookList query="" />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar el catálogo')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos cargar el catálogo. Intenta de nuevo en unos minutos.',
+    )
   })
 })

@@ -12,7 +12,8 @@ Pedir un libro prestado desde su detalle, buscar los préstamos de un correo, de
 
 ## Puede depender de / no puede depender de
 
-- Puede: `shared/domain` (fechas y estados), `shared/api` (solo desde hooks).
+- Puede: `shared/domain` (fechas y estados), `shared/api` (solo desde hooks, los componentes solo importan
+  tipos, ARCH-R7). Los hooks entregan los errores por campo ya calculados (`fieldErrors`).
 - No puede: llamar `fetch` directo (ARCH-R7), importar `mocks` (ARCH-R8), calcular el estado de un
   préstamo por su cuenta (lo entrega la API, LOAN-R6).
 
@@ -30,14 +31,14 @@ Pedir un libro prestado desde su detalle, buscar los préstamos de un correo, de
 
 ## Reglas que implementa
 
-| Regla      | Dónde se implementa                                                                                                        | Test                                                                                    |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| UI-LOAN-1  | `BorrowForm` con `formatDate` (dd-mm-aaaa, America/Santiago)                                                               | `BorrowForm.test.tsx`, `FLOW-PRE-01`, a11y                                              |
-| UI-LOAN-2  | `LoanList` y `LoanStatusLabel` (`--color-info`, `--color-danger`, `--color-muted`)                                         | `LoanList.test.tsx`, `loans.style.spec.ts`, `loans.visual.spec.ts`                      |
-| UI-LOAN-3  | `useLoans.returnLoan` reemplaza el préstamo sin recargar                                                                   | `LoanList.test.tsx`, `FLOW-PRE-02`                                                      |
-| UI-LOAN-4  | `loan-error-messages.ts`                                                                                                   | `BorrowForm.test.tsx` (un test por código 409), `FLOW-PRE-03`                           |
-| UI-RENEW-1 | `LoanList` (`canRenew`: estado `ACTIVE` y `renewalCount` 0) y `useLoans.renewLoan`, que reemplaza el préstamo sin recargar | `LoanList.test.tsx` (visibilidad en sus cuatro particiones y renovación), `FLOW-PRE-04` |
-| UI-RENEW-2 | `loan-error-messages.ts` (`RENEW_CONFLICT_MESSAGES` y `loanActionMessage`)                                                 | `LoanList.test.tsx` (un test por código 409)                                            |
+| Regla      | Dónde se implementa                                                                                                                                              | Test                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| UI-LOAN-1  | `BorrowForm` con `formatDate` (dd-mm-aaaa, America/Santiago)                                                                                                     | `BorrowForm.test.tsx`, `FLOW-PRE-01`, a11y                                                       |
+| UI-LOAN-2  | `LoanList` y `LoanStatusLabel` (`--color-info`, `--color-danger`, `--color-muted`)                                                                               | `LoanList.test.tsx`, `loans.style.spec.ts`, `loans.visual.spec.ts`                               |
+| UI-LOAN-3  | `useLoans.returnLoan` reemplaza el préstamo sin recargar, `LoanList` anuncia en `role="status"` y enfoca el título                                               | `LoanList.test.tsx`, `FLOW-PRE-02`                                                               |
+| UI-LOAN-4  | `loan-error-messages.ts`                                                                                                                                         | `BorrowForm.test.tsx` (un test por código 409), `FLOW-PRE-03`                                    |
+| UI-RENEW-1 | `LoanList` (`canRenew`: estado `ACTIVE` y `renewalCount` 0) y `useLoans.renewLoan`, que reemplaza el préstamo sin recargar, anuncia la fecha y enfoca "Devolver" | `LoanList.test.tsx` (visibilidad en sus cuatro particiones, renovación y anuncio), `FLOW-PRE-04` |
+| UI-RENEW-2 | `loan-error-messages.ts` (`RENEW_CONFLICT_MESSAGES` y `loanActionMessage`)                                                                                       | `LoanList.test.tsx` (un test por código 409)                                                     |
 
 ## Cómo se prueba esta capa
 

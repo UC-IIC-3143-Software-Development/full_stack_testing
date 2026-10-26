@@ -6,6 +6,12 @@ import { useApiQuery } from '@/shared/api/use-api-query'
 
 export type LoanAction = 'return' | 'renew'
 
+/** Última devolución o renovación exitosa: la UI la anuncia y mueve el foco (UI-LOAN-3, UI-RENEW-1). */
+export interface LoanActionSuccess {
+  loan: Loan
+  action: LoanAction
+}
+
 export interface LoanActionFailure {
   loanId: string
   action: LoanAction
@@ -29,14 +35,18 @@ export function useLoans(borrowerEmail: string) {
   const [updated, setUpdated] = useState<Record<string, Loan>>({})
   const [pending, setPending] = useState<string | null>(null)
   const [actionFailure, setActionFailure] = useState<LoanActionFailure | null>(null)
+  const [lastSuccess, setLastSuccess] = useState<LoanActionSuccess | null>(null)
 
   async function run(loanId: string, action: LoanAction, request: () => Promise<LoanResponse>) {
     setPending(loanId)
     setActionFailure(null)
+    setLastSuccess(null)
     try {
       const { data, error } = await request()
-      if (data) setUpdated((prev) => ({ ...prev, [loanId]: data }))
-      else setActionFailure({ loanId, action, failure: toApiFailure(error) })
+      if (data) {
+        setUpdated((prev) => ({ ...prev, [loanId]: data }))
+        setLastSuccess({ loan: data, action })
+      } else setActionFailure({ loanId, action, failure: toApiFailure(error) })
     } catch (error) {
       setActionFailure({ loanId, action, failure: toApiFailure(error) })
     } finally {
@@ -56,5 +66,5 @@ export function useLoans(borrowerEmail: string) {
 
   const loans = state.status === 'success' ? state.data.map((loan) => updated[loan.id] ?? loan) : []
 
-  return { state, loans, returnLoan, renewLoan, pending, actionFailure }
+  return { state, loans, returnLoan, renewLoan, pending, actionFailure, lastSuccess }
 }
