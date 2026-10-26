@@ -57,6 +57,11 @@ SLIDE_H = 5.625
 TAGS = {"r": RED, "g": GREEN, "b": BLUE, "t": TEAL, "o": ORANGE, "p": PURPLE, "k": PINK, "m": GRAY}
 TOKEN = re.compile(r"(\*\*.+?\*\*|`[^`]+`|\[[a-z]\].+?\[/\])")
 
+# Tamaños mínimos para proyectar (los verifica build_deck.check_sizes)
+MIN_BODY = 12  # texto de cuerpo, tablas y etiquetas de diagramas
+MIN_CAPTION = 10  # fuentes, pies de imagen y notas al margen (formas con nombre "caption")
+MIN_CODE = 10  # bloques de código
+
 # Advertencias de texto que probablemente no cabe (se imprimen al construir)
 WARNINGS: list[str] = []
 
@@ -312,7 +317,10 @@ class Deck:
     # ---------- formas ----------
     def text(self, slide, x, y, w, h, paras, size=12, color=INK, bold=False, align="l", anchor="t",
              font=FONT_BODY, bullets=False, space_after=4, margin=0.04, italic=False, line_spacing=None,
-             bullet_color=PINK, name=None, check=True):
+             bullet_color=PINK, name=None, check=True, caption=False):
+        """Caja de texto. Con caption=True es una nota al margen (fuente, pie de imagen): puede ir a 10 pt."""
+        if caption:
+            name = "caption"
         tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
         tf = tb.text_frame
         tf.word_wrap = True
@@ -339,7 +347,7 @@ class Deck:
         if need > h + 0.08:
             WARNINGS.append(f"Texto que puede no caber ({need:.2f} > {h:.2f} in): {str(paras)[:70]!r}")
 
-    def box(self, slide, x, y, w, h, text="", fill=TEAL, color=WHITE, size=11, bold=None, line=None,
+    def box(self, slide, x, y, w, h, text="", fill=TEAL, color=WHITE, size=12, bold=None, line=None,
             line_w=1.0, shape="round", align="c", anchor="m", radius=0.08, font=FONT_BODY, margin=0.06,
             dash=False, paras=None, bullets=False, space_after=2, name=None, check=True):
         kind = {
@@ -407,7 +415,7 @@ class Deck:
     def circle_num(self, slide, x, y, d, n, fill=TEAL, size=12, color=WHITE):
         return self.box(slide, x, y, d, d, str(n), fill=fill, color=color, size=size, shape="oval", margin=0)
 
-    def chip(self, slide, x, y, w, h, text, fill=TEAL, size=9.5, color=WHITE):
+    def chip(self, slide, x, y, w, h, text, fill=TEAL, size=12, color=WHITE):
         return self.box(slide, x, y, w, h, text, fill=fill, color=color, size=size, radius=0.06, margin=0.03)
 
     def card(self, slide, x, y, w, h, fill=LIGHT, line=None, radius=0.1):
@@ -425,18 +433,21 @@ class Deck:
 
     # ---------- código ----------
     def code(self, slide, x, y, w, h, src: str, lang="ts", title=None, size=None, check=True):
-        """Caja de código. Con size=None elige el tamaño más grande (10 a 8 pt) que cabe en la caja."""
+        """Caja de código. Con size=None elige el tamaño más grande (11 a 10 pt) que cabe en la caja.
+
+        El mínimo para proyectar es 10 pt: si el extracto no cabe a 10 pt se avisa y hay que acortarlo.
+        """
         self.box(slide, x, y, w, h, "", fill=CODEBG, line=BORDER, line_w=0.75, radius=0.06)
         top = y + 0.08
         if title:
-            self.text(slide, x + 0.12, y + 0.06, w - 0.24, 0.26, title, size=8.5, color=MUTED, font=FONT_CODE,
+            self.text(slide, x + 0.12, y + 0.05, w - 0.24, 0.26, title, size=10, color=MUTED, font=FONT_CODE,
                       check=False, margin=0)
             top = y + 0.34
         if size is None:
             src_lines = src.strip("\n").split("\n")
             longest = max(len(l) for l in src_lines)
-            size = 8.0
-            for cand in (10, 9.5, 9, 8.5, 8):
+            size = MIN_CODE
+            for cand in (11, 10.5, 10):
                 fits_w = longest * cand * 0.60 / 72 <= w - 0.24
                 fits_h = len(src_lines) * cand * 1.2 / 72 <= y + h - top - 0.06
                 if fits_w and fits_h:
@@ -471,7 +482,7 @@ class Deck:
         return tb
 
     # ---------- tablas ----------
-    def table(self, slide, x, y, w, rows, col_w, row_h=0.32, size=10, header_fill=TEAL, header_color=WHITE,
+    def table(self, slide, x, y, w, rows, col_w, row_h=0.36, size=12, header_fill=TEAL, header_color=WHITE,
               zebra=True, first_col_bold=False, col_colors=None, header_size=None, align=None):
         nrows, ncols = len(rows), len(rows[0])
         gf = slide.shapes.add_table(nrows, ncols, Inches(x), Inches(y), Inches(w), Inches(row_h * nrows))
@@ -571,7 +582,10 @@ def highlight(line: str, lang: str) -> list[tuple[str, str, bool]]:
         pat = re.compile(r"(?P<head>^#+ .*$)|(?P<bold>\*\*[^*]+\*\*)|(?P<str>`[^`]+`)|(?P<com>^\|.*$)")
         colors = {"head": TEAL, "bold": INK, "com": GRAY}
     elif lang == "sh":
-        pat = re.compile(r"(?P<prompt>^\$ )|(?P<ok>✓.*$)|(?P<bad>✗.*$)|(?P<com>#.*$)|(?P<str>'[^']*'|\"[^\"]*\")")
+        pat = re.compile(
+            r"(?P<prompt>^\$ )|(?P<ok>[✓✔].*$|^OK: .*$)"
+            r"|(?P<bad>[✗✖].*$|^\s*error .*$|^x \d.*$|^FALLA: .*$|^(?:HUÉRFANO|ID NO EXISTE|PRESUPUESTO) .*$)"
+            r"|(?P<com>#.*$)|(?P<str>'[^']*'|\"[^\"]*\")")
         colors = {"prompt": MUTED, "ok": GREEN, "bad": RED, "com": C_COM}
     else:
         return [(line, INK, False)]
