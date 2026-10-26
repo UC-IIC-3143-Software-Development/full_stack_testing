@@ -1,0 +1,44 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Loop rápido (micro): debe tardar "lo que dura preparar un té" (libro, p. 127).
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
+      - name: Presupuesto de tests (pirámide, duplicados, aserciones débiles, flaky)
+        run: npm run budget
+
+  # Mutation testing solo sobre los archivos de src que cambió el PR:
+  # es caro, así que se usa con criterio (libro, p. 116).
+  mutation:
+    if: github.event_name == 'pull_request'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Archivos de src modificados
+        id: changed
+        run: |
+          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'src/*.js' | grep -v server.js | paste -sd, -)
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+      - if: steps.changed.outputs.files != ''
+        run: npx stryker run --mutate "${{ steps.changed.outputs.files }}" --thresholds.break 80

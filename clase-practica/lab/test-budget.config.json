@@ -1,0 +1,20 @@
+{
+  "_comment": "Presupuesto de tests. Pirámide de Mike Cohn (Full Stack Testing, cap. 3, p. 72): 10x unit : 5x service : x UI.",
+  "layers": {
+    "unit": "\\.unit\\.test\\.js$",
+    "api": "\\.api\\.test\\.js$",
+    "e2e": "\\.e2e\\.test\\.js$"
+  },
+  "maxRatioToUnit": { "api": 0.5, "e2e": 0.1 },
+  "maxUnitTestMs": 50,
+  "lowerLayerHints": "invalid|missing|empty|blank|null|negative|zero|decimal|string|number|malformed|format",
+  "weakAssertions": [
+    "\\.toBeDefined\\(\\)",
+    "\\.toBeTruthy\\(\\)",
+    "\\.not\\.toThrow\\(\\)",
+    "toBe\\(['\"]function['\"]\\)",
+    "\\.toHaveProperty\\(['\"][^'\"]+['\"]\\)"
+  ],
+  "flakyPatterns": ["Date\\.now\\(\\)", "setTimeout\\(", "waitForTimeout\\("],
+  "failOn": ["pyramid", "duplicates", "weakAssertions", "flaky"]
+}
