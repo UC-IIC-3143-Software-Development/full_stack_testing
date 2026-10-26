@@ -1,0 +1,13 @@
+# Lista blanca: todo queda fuera del contexto salvo lo que se nombra abajo.
+# Así nunca entran .env, .git, node_modules locales ni reportes.
+**
+!backend/package.json
+!backend/package-lock.json
+!backend/tsconfig.json
+!backend/tsconfig.build.json
+!backend/nest-cli.json
+!backend/src/**
+!specs/api/openapi.yaml
+backend/src/**/*.spec.ts
+backend/src/**/*.int-spec.ts
+backend/src/**/SPEC.md
