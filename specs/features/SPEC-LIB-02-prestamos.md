@@ -39,6 +39,12 @@ copias que no existen y limitar cuántos libros puede tener una persona al mismo
 - **LOAN-R7 · Correo.** El correo se normaliza a minúsculas y sin espacios. Debe ser un correo
   válido. Libro inexistente al prestar: 404 `BOOK_NOT_FOUND`.
 
+- **Orden de validación al prestar.** Si una solicitud incumple varias reglas, responde el primer
+  error de esta lista: correo inválido (400), libro inexistente (404), `DUPLICATE_LOAN` (LOAN-R4),
+  `LOAN_LIMIT_REACHED` (LOAN-R2) y `NO_COPIES_AVAILABLE` (LOAN-R1). Backend y mock server usan el mismo orden.
+- **Correo con espacios por HTTP.** El contrato declara `format: email`, así que un correo con espacios
+  se rechaza con 400 antes de llegar al dominio. La normalización de LOAN-R7 se prueba en la capa de dominio.
+
 ## Comportamiento en la interfaz
 
 - **UI-LOAN-1** En el detalle del libro, el formulario "Pedir prestado" pide el correo y, al

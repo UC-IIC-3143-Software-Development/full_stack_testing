@@ -74,6 +74,9 @@ paths:
       operationId: createBook
       tags: [books]
       summary: Agrega un libro al catálogo
+      description: |
+        Normaliza el ISBN y valida su dígito verificador (BOOK-R1), recorta título y autor
+        (BOOK-R3) y deja availableCopies igual a totalCopies (BOOK-R4).
       requestBody:
         required: true
         content:
@@ -111,6 +114,7 @@ paths:
       operationId: getBook
       tags: [books]
       summary: Obtiene un libro
+      description: Devuelve el libro con sus copias disponibles. Un id que no es UUID responde 400 (BOOK-R6).
       parameters:
         - $ref: '#/components/parameters/BookId'
       responses:
@@ -155,6 +159,10 @@ paths:
       operationId: createLoan
       tags: [loans]
       summary: Registra un préstamo
+      description: |
+        Descuenta una copia disponible y fija dueAt en 14 días (LOAN-R1 y LOAN-R3).
+        Orden de validación: correo (400), libro (404), préstamo duplicado (LOAN-R4),
+        límite de préstamos (LOAN-R2) y copias disponibles (LOAN-R1).
       requestBody:
         required: true
         content:
@@ -194,6 +202,7 @@ paths:
       operationId: returnLoan
       tags: [loans]
       summary: Registra la devolución de un préstamo
+      description: Registra returnedAt y devuelve la copia al catálogo (LOAN-R5).
       parameters:
         - $ref: '#/components/parameters/LoanId'
       responses:
