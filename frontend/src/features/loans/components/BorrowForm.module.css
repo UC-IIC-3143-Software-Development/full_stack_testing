@@ -1,0 +1,15 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+}
+
+.success {
+  margin: 0;
+  font-weight: 700;
+}
+
+.due {
+  margin: 0;
+}

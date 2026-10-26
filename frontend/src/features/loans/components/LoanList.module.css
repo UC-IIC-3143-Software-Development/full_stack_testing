@@ -1,0 +1,67 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.heading {
+  font-size: 1.25rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.title {
+  font-size: 1.0625rem;
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin: 0;
+}
+
+.dates dt {
+  font-size: 0.875rem;
+  color: var(--color-text-soft);
+}
+
+.dates dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Variante secundaria: borde azul, fondo blanco. */
+.returnButton {
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.returnButton:hover:not(:disabled) {
+  background: var(--color-bg);
+}

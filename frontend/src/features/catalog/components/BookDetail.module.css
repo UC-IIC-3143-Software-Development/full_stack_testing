@@ -1,0 +1,29 @@
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.facts dt {
+  font-size: 0.875rem;
+  color: var(--color-text-soft);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+}

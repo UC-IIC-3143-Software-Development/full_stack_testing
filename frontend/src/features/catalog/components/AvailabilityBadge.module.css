@@ -1,0 +1,18 @@
+.badge {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-on-color);
+}
+
+.available {
+  background-color: var(--color-success);
+}
+
+.soldOut {
+  background-color: var(--color-danger);
+}

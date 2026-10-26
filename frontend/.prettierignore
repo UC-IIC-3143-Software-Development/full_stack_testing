@@ -1,0 +1,15 @@
+.next/
+node_modules/
+coverage/
+reports/
+evidence/
+test-results/
+playwright-report/
+.features-gen/
+.stryker-tmp/
+.lighthouseci/
+public/mockServiceWorker.js
+src/shared/api/schema.d.ts
+tests/visual/__screenshots__/
+next-env.d.ts
+package-lock.json

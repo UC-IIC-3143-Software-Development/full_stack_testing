@@ -1,0 +1,40 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+/* UI-CAT-4: la insignia queda arriba a la derecha (lo verifica tests/layout). */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.title {
+  font-size: 1.125rem;
+}
+
+.author {
+  margin: 0;
+  color: var(--color-text-soft);
+}
+
+.isbn {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  margin-top: auto;
+  padding-top: 12px;
+}

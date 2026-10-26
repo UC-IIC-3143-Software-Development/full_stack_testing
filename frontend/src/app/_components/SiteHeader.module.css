@@ -1,0 +1,47 @@
+.header {
+  background: var(--color-primary);
+  color: var(--color-on-color);
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 14px 16px;
+}
+
+.brand {
+  color: var(--color-on-color);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.links {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--color-on-color);
+  text-decoration: none;
+}
+
+.link:hover,
+.link[aria-current='page'] {
+  background: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.header :focus-visible {
+  outline-color: var(--color-on-color);
+}

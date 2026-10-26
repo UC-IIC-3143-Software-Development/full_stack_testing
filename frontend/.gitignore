@@ -1,0 +1,11 @@
+# Generados por Next (next typegen o next build). typecheck los regenera.
+next-env.d.ts
+*.tsbuildinfo
+# Salidas de herramientas de test
+reports/
+evidence/
+test-results/
+playwright-report/
+.features-gen/
+.stryker-tmp/
+.lighthouseci/

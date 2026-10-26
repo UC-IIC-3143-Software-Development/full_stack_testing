@@ -1,0 +1,19 @@
+# Contexto = raíz del repo. Se usa con: docker build -f frontend/Dockerfile .
+# Lista blanca: todo afuera salvo el frontend (así nunca entra un .env ni el backend).
+*
+!frontend/
+frontend/node_modules
+frontend/.next
+frontend/reports
+frontend/evidence
+frontend/test-results
+frontend/playwright-report
+frontend/.features-gen
+frontend/.stryker-tmp
+frontend/.lighthouseci
+frontend/tests
+frontend/**/*.test.ts
+frontend/**/*.test.tsx
+frontend/.env*
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
