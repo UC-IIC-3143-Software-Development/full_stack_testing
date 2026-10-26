@@ -5,13 +5,13 @@
 #   docker build -f frontend/Dockerfile --build-arg BACKEND_URL=http://api:3001 .
 
 # ---------- 1. Dependencias (se cachean mientras no cambie el lockfile) ----------
-FROM node:24-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 # ---------- 2. Build ----------
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app/frontend
 # Destino del rewrite /api. Next lo graba en el build, por eso es ARG y no ENV de runtime.
 ARG BACKEND_URL=http://backend:3001
@@ -22,7 +22,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---------- 3. Runtime: solo el servidor standalone y los assets ----------
-FROM node:24-alpine AS runner
+FROM node:25-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
