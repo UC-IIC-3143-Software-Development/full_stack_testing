@@ -21,13 +21,14 @@ interface LoanRow {
   loaned_at: Date
   due_at: Date
   returned_at: Date | null
+  renewal_count: number
 }
 
 // El título viene de la tabla books con un JOIN en SQL: el módulo loans no importa
 // la infraestructura de books (ARCH-R5).
 const SELECT_LOANS = `
   SELECT l.id, l.book_id, b.title AS book_title, l.borrower_email,
-         l.loaned_at, l.due_at, l.returned_at
+         l.loaned_at, l.due_at, l.returned_at, l.renewal_count
   FROM loans l
   JOIN books b ON b.id = l.book_id`
 
@@ -57,6 +58,7 @@ export class TypeOrmLoanRepository implements LoanRepository {
         loanedAt: loan.loanedAt,
         dueAt: loan.dueAt,
         returnedAt: loan.returnedAt,
+        renewalCount: loan.renewalCount,
       })
     } catch (error) {
       if (isUniqueViolation(error, LOANS_UNRETURNED_UNIQUE)) {
@@ -99,8 +101,20 @@ export class TypeOrmLoanRepository implements LoanRepository {
     return result.affected === 1
   }
 
-  async markRenewed(): Promise<boolean> {
-    throw new Error('markRenewed aún no está implementado (SPEC-LIB-03)')
+  async markRenewed(loan: Loan): Promise<boolean> {
+    // UPDATE condicional (RENEW-R2 y RENEW-R3): si otra transacción lo renovó o lo devolvió
+    // primero, afecta 0 filas. renewal_count hace de versión del préstamo.
+    const result = await this.manager
+      .getRepository(LoanOrmEntity)
+      .createQueryBuilder()
+      .update(LoanOrmEntity)
+      .set({ dueAt: loan.dueAt, renewalCount: loan.renewalCount })
+      .where('id = :id AND renewal_count = :previous AND returned_at IS NULL', {
+        id: loan.id,
+        previous: loan.renewalCount - 1,
+      })
+      .execute()
+    return result.affected === 1
   }
 }
 
@@ -113,5 +127,6 @@ function toDomain(row: LoanRow): Loan {
     loanedAt: row.loaned_at,
     dueAt: row.due_at,
     returnedAt: row.returned_at,
+    renewalCount: row.renewal_count,
   })
 }

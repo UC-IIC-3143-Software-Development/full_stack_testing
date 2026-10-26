@@ -10,6 +10,7 @@ export interface LoanDetails {
   dueAt: Date
   returnedAt: Date | null
   status: LoanStatus
+  renewalCount: number
 }
 
 export function toLoanDetails(loan: Loan, now: Date): LoanDetails {
@@ -22,5 +23,6 @@ export function toLoanDetails(loan: Loan, now: Date): LoanDetails {
     dueAt: loan.dueAt,
     returnedAt: loan.returnedAt,
     status: loan.statusAt(now),
+    renewalCount: loan.renewalCount,
   }
 }

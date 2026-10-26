@@ -46,8 +46,14 @@ export class InMemoryLoanRepository implements LoanRepository, Snapshottable {
     return true
   }
 
-  async markRenewed(): Promise<boolean> {
-    throw new Error('markRenewed aún no está implementado (SPEC-LIB-03)')
+  /** Igual que el UPDATE condicional de PostgreSQL: solo si no se devolvió ni se renovó antes. */
+  async markRenewed(loan: Loan): Promise<boolean> {
+    const current = this.loans.get(loan.id)
+    if (!current || current.isReturned || current.renewalCount !== loan.renewalCount - 1) {
+      return false
+    }
+    this.loans.set(loan.id, loan)
+    return true
   }
 
   snapshot(): Map<string, Loan> {
