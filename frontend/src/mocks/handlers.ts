@@ -26,6 +26,8 @@ const LOAN_DAYS = 14
 const MAX_ACTIVE_LOANS = 3
 const RENEWAL_DAYS = 7
 const MAX_RENEWALS = 1
+const OVERDUE_DEFAULT_LIMIT = 20
+const INTEGER = /^-?\d+$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // Mismo patrón que el formato email de ajv-formats, que usa el backend para validar el contrato.
 // Es una copia exacta a propósito: si la simplificamos, el mock acepta o rechaza correos
@@ -250,6 +252,29 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         .loans.filter((l) => l.borrowerEmail === email)
         .sort((a, b) => b.loanedAt.localeCompare(a.loanedAt))
         .map(toLoan)
+      return HttpResponse.json(loans)
+    }),
+
+    // LOAN-R8: préstamos vencidos, del que venció hace más tiempo al más reciente.
+    http.get('*/api/loans/overdue', ({ request }) => {
+      const params = new URL(request.url).searchParams
+      const raw = params.get('borrowerEmail')
+      const rawLimit = params.get('limit')
+      const errors = collect([
+        ['borrowerEmail', raw === null ? null : emailError(raw)],
+        ['limit', rawLimit === null || INTEGER.test(rawLimit) ? null : MESSAGES.integer],
+      ])
+      if (errors.length > 0) return validationError(errors)
+      const email = raw?.toLowerCase()
+      // El contrato no fija un mínimo para limit: el mock trata un valor negativo como 0.
+      const limit = rawLimit === null ? OVERDUE_DEFAULT_LIMIT : Math.max(Number(rawLimit), 0)
+      const loans = store
+        .read()
+        .loans.filter((l) => email === undefined || l.borrowerEmail === email)
+        .map(toLoan)
+        .filter((l) => l.status === 'OVERDUE')
+        .sort((a, b) => a.dueAt.localeCompare(b.dueAt))
+        .slice(0, limit)
       return HttpResponse.json(loans)
     }),
 

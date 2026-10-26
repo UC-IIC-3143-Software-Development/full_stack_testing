@@ -197,6 +197,42 @@ paths:
                 status: 409
                 code: LOAN_LIMIT_REACHED
                 detail: ana@uc.cl ya tiene 3 préstamos activos
+  /api/loans/overdue:
+    get:
+      operationId: listOverdueLoans
+      tags: [loans]
+      summary: Lista los préstamos vencidos
+      description: |
+        Devuelve los préstamos no devueltos con estado OVERDUE, del que venció hace más
+        tiempo al más reciente (LOAN-R8). Se puede filtrar por correo y limitar la cantidad.
+      parameters:
+        - name: borrowerEmail
+          in: query
+          required: false
+          description: Correo de la persona (se compara sin distinguir mayúsculas).
+          schema:
+            type: string
+            format: email
+            maxLength: 254
+          example: ana@uc.cl
+        - name: limit
+          in: query
+          required: false
+          description: Cantidad máxima de préstamos que se devuelven. Por defecto 20.
+          schema:
+            type: integer
+          example: 10
+      responses:
+        '200':
+          description: Lista de préstamos vencidos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Loan'
+        '400':
+          $ref: '#/components/responses/ValidationError'
   /api/loans/{loanId}/return:
     post:
       operationId: returnLoan
