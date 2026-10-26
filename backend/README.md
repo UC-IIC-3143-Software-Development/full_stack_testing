@@ -28,14 +28,14 @@ npm run seed                                  # carga los libros de specs/flows/
 curl http://localhost:3001/api/health         # {"status":"ok"}
 ```
 
-| Variable            | Valor por defecto                                            | Uso                                             |
-| ------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
-| `PORT`              | `3001`                                                       | Puerto HTTP. Todas las rutas van bajo `/api`    |
-| `DATABASE_URL`      | `postgres://biblioteca:biblioteca@localhost:5432/biblioteca` | Conexión a PostgreSQL                           |
-| `CLOCK_FIXED_NOW`   | sin valor                                                    | Fija "hoy" (ISO 8601). Solo pruebas y evidencia |
-| `OPENAPI_PATH`      | `../specs/api/openapi.yaml`                                  | Contrato que usa el validador de requests       |
-| `DB_RUN_MIGRATIONS` | `true`                                                       | `false` evita correr migraciones al iniciar     |
-| `API_URL` (seed)    | `http://localhost:3001`                                      | Backend donde `npm run seed` carga datos        |
+| Variable            | Valor por defecto                                                                             | Uso                                             |
+| ------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `PORT`              | `3001`                                                                                        | Puerto HTTP. Todas las rutas van bajo `/api`    |
+| `DATABASE_URL`      | obligatoria, sin valor por defecto (ej. `postgres://usuario:clave@localhost:5432/biblioteca`) | Conexión a PostgreSQL                           |
+| `CLOCK_FIXED_NOW`   | sin valor                                                                                     | Fija "hoy" (ISO 8601). Solo pruebas y evidencia |
+| `OPENAPI_PATH`      | `../specs/api/openapi.yaml`                                                                   | Contrato que usa el validador de requests       |
+| `DB_RUN_MIGRATIONS` | `true`                                                                                        | `false` evita correr migraciones al iniciar     |
+| `API_URL` (seed)    | `http://localhost:3001`                                                                       | Backend donde `npm run seed` carga datos        |
 
 ## Arquitectura en capas
 
