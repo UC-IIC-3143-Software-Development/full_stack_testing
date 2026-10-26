@@ -1,12 +1,9 @@
 # Agente que PROPONE tests de contrato para una operación del OpenAPI.
 #
-# Respeta la constitución (P4.7): la IA no genera tests en lote. Primero escribe un
-# plan con los casos (partición, código HTTP, capa e ID de regla, máximo 6 por regla),
-# después propone los tests y abre un PR en borrador para que una persona apruebe el
-# plan antes de revisar el código. Nada se integra sin revisión humana.
-#
-# Inspirado en el libro Full Stack Testing, cap. 4, "Claude in GitHub Actions"
-# (p. 139 a 143), que genera tests desde un OpenAPI y abre un PR.
+# Respeta la constitución (P4.7, calidad antes que cantidad): primero escribe un plan con
+# los casos (partición, código HTTP, capa e ID de regla, máximo 6 por regla), después
+# propone los tests y abre un PR en borrador. Una persona revisa que cada prueba cubra un
+# flujo real o una regla de la spec. Nada se integra sin revisión humana.
 #
 # Requisitos:
 #   - Secreto ANTHROPIC_API_KEY (sin él, el job termina en verde con un aviso).

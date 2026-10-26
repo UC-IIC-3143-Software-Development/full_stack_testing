@@ -3,12 +3,10 @@
 # Mutation testing: cambia el código de producción (por ejemplo `>` por `>=`) y
 # revisa si algún test falla. Si ninguno falla, el mutante "sobrevive" y revela un
 # test que no verifica lo que creemos. Es muy efectivo, pero lento: ejecuta la
-# suite completa por cada mutante. El libro lo dice así: "Mutation testing, though
-# very effective, is time-consuming, so use it wisely" (Full Stack Testing, p. 116).
-# Por eso corre de noche y su reporte sirve para mejorar los tests, no para bloquear PR.
+# suite completa por cada mutante. Por eso corre de noche y su reporte sirve para mejorar los tests, no para bloquear PR.
 #
 # Cross-browser: los PR prueban en Chromium. De noche se prueban los mismos flujos
-# en Firefox y WebKit (motor de Safari), libro cap. 6, p. 192.
+# en Firefox y WebKit (motor de Safari).
 #
 # ZAP full scan: escaneo activo completo del frontend (spider + ataques). Tarda
 # bastante más que el baseline del PR, por eso es opcional y manual.

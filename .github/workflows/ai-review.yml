@@ -10,9 +10,7 @@
 # Sin el secreto (o en PR desde forks, que no reciben secretos) el job termina en verde
 # con un aviso en el resumen del run.
 #
-# Libro Full Stack Testing, cap. 4, "Claude in GitHub Actions" (p. 139 a 143). El
-# ejemplo del libro usa los inputs allowed_tools y max_turns, que en la v1 de la
-# acción pasaron a claude_args.
+# Nota: en la v1 de la acción los antiguos inputs allowed_tools y max_turns pasaron a claude_args.
 name: Revisión con IA
 
 on:

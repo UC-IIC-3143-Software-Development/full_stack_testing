@@ -36,10 +36,8 @@ Las reglas de dependencia se verifican con `dependency-cruiser` en CI.
 
 ## P4 · Política de tests (cómo evitamos que la IA genere miles de tests inútiles)
 
-Basada en *Full Stack Testing* (G. Mohan, 2.ª ed., O'Reilly 2026), cap. 3.
-
 1. **La capa más baja posible.** Cada test vive en la capa más baja que puede detectar
-   el defecto. Las validaciones de campos se prueban en unit, no en API ni en UI (p. 71 y p. 102).
+   el defecto. Las validaciones de campos se prueban en unit, no en API ni en UI.
 2. **Una partición, un test.** Una regla se cubre con sus particiones de equivalencia y
    valores límite, no con variantes del mismo caso. Presupuesto máximo: 6 tests por regla y capa.
 3. **Sin mocks por defecto.** Los tests unitarios usan objetos reales o *fakes*: versiones
