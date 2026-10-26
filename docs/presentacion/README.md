@@ -5,7 +5,7 @@
 fuentes (Bitter e Inter, incrustadas) y la misma portada que las clases 04-Testing y
 06-Testing Frontend del curso. Cada diapositiva tiene notas del orador.
 
-## Estructura (74 diapositivas)
+## Estructura (76 diapositivas)
 
 | Parte | Contenido |
 | ----- | --------- |
@@ -13,10 +13,10 @@ fuentes (Bitter e Inter, incrustadas) y la misma portada que las clases 04-Testi
 | 1. Por qué ahora | Evidencia del libro, tabla 3-1, pirámide, cono de helado y cupcake, mito del 100 por ciento, 7 reglas, tres barandas, industria (Meta y Google) |
 | 2. Spec Driven Development | Qué es, anatomía de un SPEC, specs por capa, trazabilidad, OpenAPI, Spectral y oasdiff, Gherkin, IA en dos pasos, agente que propone tests |
 | 3. El proyecto | Monorepo, la app, arquitectura en capas, dependency-cruiser |
-| 4. Tipos de prueba | Mapa con los conteos reales, dobles de prueba y una diapositiva por tipo con código real del repo, incluidas las capturas de referencia visuales (`visual-baselines.yml`) |
+| 4. Tipos de prueba | Mapa con los conteos reales de main (antes de SPEC-LIB-03), dobles de prueba y una diapositiva por tipo con código real del repo, incluidas las capturas de referencia visuales (`visual-baselines.yml`) |
 | 5. DevSecOps y CI | Lazo DevSecOps, controles por etapa, shift left, Git Flow, trunk based, "¿Qué es esto?" (SAST, DAST, Semgrep, Trivy y dependencias), secretos, IaC y SBOM, herramientas por etapa, Semgrep, ZAP y el pipeline con sus dos ciclos de feedback |
-| 6. Evidencia en el PR | Qué se publica, cómo se ve el comentario, Chrome sin interfaz |
-| 7. Actividad práctica | SPEC-LIB-03 "Renovar préstamo" paso a paso, borrador, prompt y checklist, y el PR de ejemplo (`feat/renovar-prestamo`) |
+| 6. Evidencia en el PR | Qué se publica, el comentario real del PR #10 (resumen y capturas de GitHub), Chrome sin interfaz |
+| 7. Actividad práctica | SPEC-LIB-03 "Renovar préstamo" paso a paso, borrador, prompt y checklist, el PR de ejemplo (PR #10, `feat/renovar-prestamo`) con sus commits por fase y lo que el pipeline encontró (oasdiff y la tolerancia visual) |
 | Cierre | Conclusiones, preguntas y referencias |
 
 ## Regenerar
@@ -42,7 +42,10 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
   (cajas, flechas, código, tablas).
 - `plantilla/base-curso.pptx` es 04-Testing.pptx sin sus diapositivas: portada, master de contenido
   y fuentes. Se regenera con `python build_deck.py --base "/ruta/04-Testing.pptx"`.
-- `img/` tiene capturas reales que toma Playwright en los flujos E2E (`frontend/evidence/`).
+- `img/` tiene capturas reales que toma Playwright en los flujos E2E (`frontend/evidence/`) y dos
+  recortes del comentario de evidencia del PR #10 (`pr10-etapas.jpg` y `pr10-flujos.jpg`).
+- `PR_COMMITS` en `build_deck.py` lista los commits del PR de ejemplo por fase. Si el PR cambia,
+  actualízalo con `git log --oneline origin/main..feat/renovar-prestamo`.
 
 ## Revisión visual
 

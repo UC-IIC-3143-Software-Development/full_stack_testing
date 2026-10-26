@@ -36,7 +36,7 @@ BASE = HERE / "plantilla" / "base-curso.pptx"
 OUT = HERE / "Full-Stack-Testing-IA-DevSecOps.pptx"
 IMG = HERE / "img"  # capturas reales de frontend/evidence (las toma Playwright en el pipeline)
 REPO_URL = "github.com/UC-IIC-3143-Software-Development/full_stack_testing"
-PULLS_URL = "https://github.com/UC-IIC-3143-Software-Development/full_stack_testing/pulls"
+PR_URL = "https://github.com/UC-IIC-3143-Software-Development/full_stack_testing/pull/10"
 
 # Colores por tipo de etapa del pipeline (se repiten en todo el deck)
 C_SEC = RED
@@ -1015,7 +1015,7 @@ def part_e(d: Deck):
     s = d.divider("Parte 4", "Tipos de prueba, uno por uno", "Qué es, qué detecta, con qué herramienta, dónde corre y un ejemplo real.")
     d.notes(s, "Cuarta parte. Cada tipo de prueba tiene la misma estructura para que sea fácil compararlos.")
 
-    s = d.content("Mapa de pruebas del proyecto")
+    s = d.content("Mapa de pruebas del proyecto (main)")
     bands = [
         ("Backend", "Jest", TEAL, [("56", "Unit dominio y aplicación", "etapa 5"),
                                     ("19", "Integración con PostgreSQL", "etapa 6"),
@@ -1052,16 +1052,20 @@ def part_e(d: Deck):
         x = 2.02 + i * (w + 0.1)
         d.box(s, x, y, w, 0.78, paras=[f"**{name}**", stage], fill=LIGHT, color=INK, size=12, space_after=0,
               margin=0.02)
-    source(d, s, "166 tests automatizados: 87 del backend, 54 de Vitest y 25 de Playwright. "
-           "La etapa es la del pipeline (Parte 5).", y=y + 0.86, w=9.1)
+    source(d, s, "Conteos de main antes de SPEC-LIB-03: 166 tests. El PR de ejemplo los lleva a 63, 22 y 15 "
+           "en backend, 35 y 29 en Vitest y 8 flujos.", y=y + 0.86, w=9.1)
     d.notes(s, """
-        Este es el mapa completo con los conteos reales del repo. Backend: 56 unitarios de dominio y
+        Este es el mapa completo con los conteos reales de main, antes de SPEC-LIB-03: 166 tests, 87 del
+        backend, 54 de Vitest y 25 de Playwright. Backend: 56 unitarios de dominio y
         aplicación, 19 de integración con PostgreSQL y 12 de contrato del proveedor. Frontend con Vitest: 31
         unitarios y de componentes, y 23 que validan los mocks de MSW contra el OpenAPI. En el navegador,
         Playwright corre 7 flujos generados desde Gherkin, 6 pruebas de estilo, 4 de layout, 4 de
         accesibilidad y 4 de regresión visual. Fíjate en la forma: muchos tests abajo y pocos arriba, es la
         pirámide. La última franja son las pruebas de sistema contra el stack real (smoke de la API,
         Schemathesis, Playwright @smoke, k6 y Lighthouse), el análisis de seguridad y la mutación nocturna.
+        El PR de ejemplo de renovación suma tests en cada franja: el backend queda con 63 unitarios, 22 de
+        integración y 15 de contrato, el frontend con 35 unitarios y 29 de contrato de mocks, Playwright con
+        8 flujos y spec-trace con 36 de 36 reglas cubiertas.
     """)
 
     s = d.content("Dobles de prueba: cuándo usar cada uno")
@@ -1387,7 +1391,7 @@ const flowsDir = defineBddConfig({
     type_slide(d, "Visual regression con capturas", [
         ("Qué es", "Compara una captura actual con una referencia aprobada, píxel a píxel."),
         ("Qué detecta", "Cambios visuales no intencionales: espaciado, fuentes, elementos que faltan."),
-        ("Herramienta", "Playwright toHaveScreenshot con tolerancia de 1 por ciento."),
+        ("Herramienta", "Playwright toHaveScreenshot. main tolera 1 por ciento y el PR de ejemplo, 25 píxeles."),
         ("Dónde corre", "Etapa 7, con datos y reloj fijos. Solo en Linux."),
     ], """
 // Regresión visual: compara contra imágenes de referencia generadas en Linux dentro de la
@@ -1408,8 +1412,9 @@ test('[UI-CAT-2] tarjeta de un libro agotado', async ({ page }) => {
         animaciones y cursor desactivados. Hay 4 pruebas visuales: el catálogo completo, una tarjeta
         disponible, una agotada y Mis préstamos. Tres consejos prácticos: las referencias se generan en el
         mismo sistema operativo que el CI, los datos y el reloj tienen que ser fijos, y actualizar una
-        referencia es un cambio que alguien revisa en el PR. La siguiente diapositiva explica cómo se
-        generan.
+        referencia es un cambio que alguien revisa en el PR. Ojo con la tolerancia: en el PR de ejemplo el 1
+        por ciento resultó demasiado laxo y se cambió a maxDiffPixels 25, lo vemos al final. La siguiente
+        diapositiva explica cómo se generan las referencias.
     """)
 
     s = d.content("Capturas de referencia: siempre en la imagen de CI")
@@ -1856,7 +1861,9 @@ def part_f(d: Deck):
         terreno: vulnerabilidades conocidas (CVE) en las dependencias del repo y en las imágenes Docker,
         secretos y configuración insegura. Y el análisis de dependencias, SCA, revisa el código que no
         escribimos nosotros: las librerías de npm. En el PR lo hacen dependency review y npm audit, y
-        Dependabot propone actualizaciones cada semana.
+        Dependabot propone actualizaciones cada semana. Un detalle práctico: dependency review necesita que
+        el repo tenga activado Dependency graph (Settings, Security). Mientras no se active, el paso solo
+        informa y las compuertas de dependencias son npm audit y Trivy fs.
     """)
 
     s = d.content("Otras siglas que vas a ver: secretos, IaC y SBOM")
@@ -1893,20 +1900,23 @@ def part_f(d: Deck):
         ["gitleaks", "Secretos", "Llaves y tokens en commits y en el historial", "1"],
         ["hadolint, actionlint, zizmor", "IaC y CI", "Dockerfile y workflows inseguros o mal escritos", "2"],
         ["Semgrep", "SAST", "Patrones inseguros, también con reglas propias", "3"],
-        ["CodeQL", "SAST", "Un input que fluye hasta una consulta o la respuesta", "3"],
-        ["Dependency review, npm audit", "SCA", "Dependencias con CVE high o crítica", "4"],
+        ["CodeQL", "SAST", "Un input que fluye hasta SQL o la respuesta", "3"],
+        ["npm audit, dependency review", "SCA", "Dependencias con CVE high o crítica", "4"],
         ["Trivy", "SCA, secretos, IaC", "CVE en el repo y en las imágenes, misconfig", "4 y 8"],
         ["SBOM (CycloneDX)", "SBOM", "Inventario de cada imagen", "8"],
-        ["OWASP ZAP", "DAST", "Headers, cookies e inyecciones en la app corriendo", "9"],
+        ["OWASP ZAP", "DAST", "Headers, cookies e inyecciones en la app viva", "9"],
         ["Schemathesis", "Fuzzing", "Errores 500 y desvíos del contrato", "9"],
     ]
-    d.table(s, 0.45, 1.08, 9.1, rows, [2.6, 1.75, 4.05, 0.7], row_h=0.38, first_col_bold=True,
+    d.table(s, 0.45, 1.08, 9.1, rows, [2.78, 1.65, 3.97, 0.7], row_h=0.38, first_col_bold=True,
             align=["l", "l", "l", "c"])
+    source(d, s, "Dependency review bloquea solo con Dependency graph activado. Hasta activarlo informa y "
+           "bloquean npm audit y Trivy fs.", y=5.0, w=9.1)
     d.notes(s, """
         Y estas son las herramientas concretas, en el orden en que aparecen en el pipeline. gitleaks para
         secretos. hadolint, actionlint y zizmor para Dockerfile y workflows. Semgrep y CodeQL para SAST:
         Semgrep con reglas legibles, incluso reglas propias, y CodeQL con análisis de flujo de datos.
-        Dependency review y npm audit para dependencias, y Trivy, la navaja suiza, que escanea el repo en la
+        npm audit y dependency review para dependencias (dependency review bloquea solo con Dependency
+        graph activado en el repo, si no queda informativo), y Trivy, la navaja suiza, que escanea el repo en la
         etapa 4 y las imágenes en la etapa 8, donde también genera el SBOM en formato CycloneDX. OWASP ZAP es
         el DAST, el libro lo trabaja en la p. 229, y Schemathesis hace fuzzing desde el contrato. Los
         resultados en formato SARIF aparecen en la pestaña Security de GitHub.
@@ -2066,47 +2076,75 @@ def part_g(d: Deck):
         actualiza en cada push.
     """)
 
-    s = d.content("Así se ve el comentario")
+    s = d.content("Así se ve el comentario: el PR #10")
     d.box(s, 0.45, 1.05, 9.1, 3.97, "", fill=WHITE, line=BORDER, line_w=1)
     d.box(s, 0.45, 1.05, 9.1, 0.42, "", fill=CODEBG, line=BORDER, line_w=1, shape="rect")
-    d.text(s, 0.6, 1.05, 8.8, 0.42, "**github-actions** comentó · Evidencia de CI · PR #42 · "
+    d.text(s, 0.6, 1.05, 8.8, 0.42, "**github-actions** comentó · Evidencia de CI · PR #10 · commit c7441d6 · "
            "[r]Hay etapas con fallas[/]", size=12, anchor="m", color=INK)
-    d.text(s, 0.6, 1.55, 4.3, 0.3, "Flujos de usuario (mock server)", size=12, bold=True)
-    flows = [("FLOW-CAT-01", "busqueda.png", GREEN, "✓"), ("FLOW-PRE-01", "prestamo-registrado.png", GREEN, "✓"),
-             ("FLOW-PRE-03", "limite-prestamos.png", RED, "✗")]
-    for i, (fid, img, col, mark) in enumerate(flows):
-        x = 0.6 + i * 1.42
-        d.image(s, IMG / img, x, 1.9, w=1.32, alt=f"Captura de {fid}")
-        d.text(s, x - 0.05, 2.75, 1.42, 0.26, f"{mark} {fid}", size=10, bold=True, color=col, align="c",
+    d.text(s, 0.6, 1.55, 4.3, 0.3, "Flujos contra el mock server: 8 de 8", size=12, bold=True)
+    flows = [("FLOW-CAT-01", "busqueda.png"), ("FLOW-PRE-01", "prestamo-registrado.png"),
+             ("FLOW-PRE-04", "renovar-prestamo.png")]
+    for i, (fid, img) in enumerate(flows):
+        x = 0.6 + i * 1.29
+        d.image(s, IMG / img, x, 1.9, w=1.17, alt=f"Captura de {fid}")
+        d.text(s, x - 0.05, 2.66, 1.27, 0.26, f"✓ {fid}", size=10, bold=True, color=GREEN, align="c",
                font=k.FONT_CODE)
-    d.text(s, 0.6, 3.1, 4.3, 0.3, "Seguridad y calidad", size=12, bold=True)
-    d.text(s, 0.6, 3.42, 4.35, 1.55, [
-        "[g]✓[/] gitleaks 0 · Trivy CRITICAL 0",
-        "[g]✓[/] Lighthouse accesibilidad 100",
-        "[g]✓[/] k6 p95 21.7 ms",
-        "[r]✗[/] ZAP API scan: 1 alerta High",
-    ], size=12, space_after=1)
-    d.text(s, 5.15, 1.55, 4.3, 0.3, "Endpoints verificados (contrato)", size=12, bold=True)
-    rows = [["Operación", "Status probados"],
-            ["getHealth", "200"],
-            ["listBooks", "200 · 400"],
-            ["createBook", "201 · 400 · 409"],
-            ["getBook", "200 · 400 · 404"],
-            ["listLoans", "200 · 400"],
-            ["createLoan", "201 · 400 · 404 · 409"],
-            ["returnLoan", "200 · 400 · 404 · 409"]]
-    d.table(s, 5.15, 1.9, 4.25, rows, [1.6, 2.65], row_h=0.34, header_fill="F0F3F6", header_color=INK)
-    source(d, s, "Ejemplo generado por tools/evidence/build-comment.mjs con datos de prueba: "
+    d.text(s, 0.6, 3.04, 3.8, 0.3, "Seguridad y calidad", size=12, bold=True)
+    d.text(s, 0.6, 3.34, 3.8, 1.6, [
+        "[g]✓[/] gitleaks 0 · CodeQL · Trivy fs 0",
+        "[g]✓[/] Lighthouse 100 · k6 p95 9.5 ms",
+        "[g]✓[/] spec-trace: 36 de 36 reglas",
+        "[o]![/] ZAP baseline: 2 Medium (CSP)",
+        "[r]✗[/] dependencias (dependency review)",
+    ], size=12, space_after=0)
+    d.text(s, 4.5, 1.55, 4.95, 0.3, "Endpoints: contrato y smoke (stack real)", size=12, bold=True)
+    rows = [["Operación", "Contrato", "Smoke"],
+            ["getHealth", "200", "200"],
+            ["listBooks", "200 · 400", "200 · 200"],
+            ["createBook", "201 · 400 · 409", "201 · 409 · 400"],
+            ["getBook", "200 · 400 · 404", "200 · 404 · 400"],
+            ["listLoans", "200 · 400", "200 · 400"],
+            ["createLoan", "201 · 400 · 404 · 409", "201 · 404"],
+            ["returnLoan", "200 · 400 · 404 · 409", "200 · 409 · 404 · 400"],
+            ["renewLoan", "200 · 400 · 404 · 409", "200 · 409"]]
+    d.table(s, 4.5, 1.88, 4.95, rows, [1.05, 1.95, 1.95], row_h=0.3, header_fill="F0F3F6", header_color=INK)
+    d.text(s, 4.5, 4.6, 4.95, 0.36, "Smoke 19 de 19 · Schemathesis 8 de 8 sin violaciones", size=12,
+           color=GREEN, bold=True, anchor="m")
+    source(d, s, "Resumen del comentario real del PR #10. Hay otro con datos de prueba en "
            "docs/ejemplo-comentario-pr.md", y=5.05, w=9.1)
     d.notes(s, """
-        Este es el comentario que deja el pipeline, resumido del ejemplo real que está en
-        docs/ejemplo-comentario-pr.md, generado con datos de prueba. Arriba dice si hay etapas con fallas.
-        A la izquierda, los flujos de usuario con sus capturas y el GIF del recorrido, cada uno con su ID:
-        aquí FLOW-PRE-03 falló y el revisor ve la captura del error sin clonar nada. A la derecha, la tabla
-        de endpoints con los status que efectivamente probó el contrato, que sale de contract-coverage.json.
-        Abajo, el resumen de seguridad y calidad: en este ejemplo el API scan de ZAP encontró una alerta
-        High, así que la etapa 9 falla y el PR no se puede integrar hasta resolverla. Pregunta para el curso:
-        ¿qué miran primero si les toca revisar este PR?
+        Este es el comentario real que dejó el pipeline en el PR de ejemplo, el número 10, resumido para que
+        se lea en la sala. Arriba dice que hay etapas con fallas, y eso es bueno: el pipeline hizo su
+        trabajo. A la izquierda, los flujos contra el mock server: 8 de 8 escenarios pasaron, incluido
+        FLOW-PRE-04, el flujo nuevo de renovar. Cada uno trae su GIF y una captura por paso. Abajo, seguridad
+        y calidad: gitleaks y Trivy sin hallazgos, Lighthouse con 100, k6 con p95 de 9.5 ms y spec-trace con
+        36 de 36 reglas. ZAP avisa dos alertas Medium de CSP y el job de dependencias falló. A la derecha,
+        los 8 endpoints con los status que probó el contrato contra PostgreSQL y los que verificó el smoke
+        contra el stack real, que dio 19 de 19. Schemathesis no encontró violaciones del contrato en las 8
+        operaciones. Pregunta para el curso: ¿qué miran primero si les toca revisar este PR?
+    """)
+
+    s = d.content("El comentario real en GitHub")
+    h = 3.3
+    w1, w2, gap = h * 492 / 402, h * 426 / 386, 0.3
+    x1 = (10 - (w1 + w2 + gap)) / 2
+    x2 = x1 + w1 + gap
+    d.image(s, IMG / "pr10-etapas.jpg", x1, 1.05, h=h, alt="Tabla de etapas DevSecOps del comentario del PR 10")
+    d.image(s, IMG / "pr10-flujos.jpg", x2, 1.05, h=h, alt="Flujos de usuario del comentario del PR 10")
+    d.text(s, x1, 4.42, w1, 0.6, ["**Etapas DevSecOps**, con el estado de cada job",
+                                  "[r]✗[/] contrato-openapi (oasdiff) · [r]✗[/] dependencias"],
+           size=12, align="c", space_after=0)
+    d.text(s, x2, 4.42, w2, 0.6, ["**Flujos de usuario**: 8 de 8 escenarios",
+                                  "GIF del flujo y una miniatura por paso"], size=12, align="c", space_after=0)
+    source(d, s, f"Capturas del comentario de evidencia en {PR_URL}", y=5.05, w=9.1, align="c")
+    d.notes(s, """
+        Y así se ve en GitHub, sin resumir. A la izquierda, la tabla de etapas DevSecOps: cada etapa con lo
+        que verifica, sus jobs y el estado. Hay dos cruces. La de contrato-openapi es oasdiff: detectó que
+        el contrato rompía la compatibilidad con los clientes, y es la primera historia de la diapositiva
+        "Lo que el pipeline encontró", al final. La de dependencias es dependency review: necesita que el
+        repo tenga activado Dependency graph y, mientras no se active, el paso queda solo informativo. A la
+        derecha, los flujos de usuario: cada escenario de Gherkin con su GIF y una miniatura por paso. El
+        revisor ve la app funcionando sin clonar nada.
     """)
 
     s = d.content("Chrome sin interfaz como testigo")
@@ -2206,7 +2244,8 @@ Reservas y listas de espera.""", lang="md", title="Borrador para partir")
         interesante son las preguntas de la derecha. ¿Qué pasa justo en el instante del vencimiento? Esa es
         una partición de valor límite que conecta con LOAN-R6. ¿Qué responde un préstamo vencido o uno ya
         devuelto? Los nuevos códigos de error obligan a cambiar el enum ErrorCode del contrato, y oasdiff
-        les va a decir si ese cambio rompe a los clientes. Y el flujo de UI se escribe en Gherkin, así el
+        les va a decir si ese cambio rompe a los clientes, como pasó en el PR de ejemplo. Y el flujo de UI
+        se escribe en Gherkin, así el
         test E2E sale solo. La versión final de esta spec está en el PR de ejemplo, que vemos al cerrar.
     """)
 
@@ -2252,41 +2291,79 @@ y specs/features/SPEC-LIB-03-renovacion.md.
 
     s = d.content("El PR de ejemplo: feat/renovar-prestamo")
     phases = [
-        ("1 · Spec y contrato", TEAL, PR_COMMITS["spec"],
-         "Reglas RENEW-R1 a R4, renewLoan en el OpenAPI y el flujo FLOW-PRE-04."),
-        ("2 · Rojo", RED, PR_COMMITS["red"],
-         "Tests que citan RENEW-Rx y UI-RENEW-x. Fallan: todavía no hay código."),
-        ("3 · Verde", GREEN, PR_COMMITS["green"],
-         "El código mínimo para que pasen. spec-trace sin huérfanos."),
+        ("1 · Spec y contrato", TEAL, "spec"),
+        ("2 · Rojo", RED, "red"),
+        ("3 · Verde", GREEN, "green"),
+        ("4 · Ajuste de spec", PLUM, "adjust"),
+        ("5 · Tolerancia visual", ORANGE, "visual"),
+        ("6 · Bot de CI", BLUE, "bot"),
+        ("7 · oasdiff", RED, "oasdiff"),
     ]
-    y = 1.05
-    for label, col, commits, txt in phases:
-        h = 0.3 + 0.2 * len(commits) + 0.28
+    y = 1.02
+    for label, col, key in phases:
+        commits = PR_COMMITS[key]
+        h = max(0.34, 0.19 * len(commits) + 0.12)
         d.card(s, 0.45, y, 9.1, h, fill=LIGHT)
-        d.box(s, 0.45, y, 1.75, h, label, fill=col, size=12, margin=0.05)
-        d.text(s, 2.35, y + 0.05, 7.1, 0.2 * len(commits) + 0.08, commits, size=10, font=k.FONT_CODE,
-               color=INK, space_after=0, check=False)
-        d.text(s, 2.35, y + 0.13 + 0.2 * len(commits), 7.1, 0.34, txt, size=12)
-        y += h + 0.1
-    d.text(s, 0.45, y + 0.02, 9.1, 0.3, "Lo que publica el pipeline en el PR", size=13, bold=True, color=TEAL)
-    evid = [("GIF de FLOW-PRE-04", AQUA), ("renewLoan en endpoints", GREEN),
-            ("RENEW-R1 a R4 trazadas", TEAL), ("oasdiff y seguridad", RED)]
-    for i, (t, col) in enumerate(evid):
-        x = 0.45 + i * 2.3
-        d.box(s, x, y + 0.36, 2.2, 0.56, t, fill=col, size=12, margin=0.04)
-    d.text(s, 0.45, y + 0.98, 9.1, 0.3, f"Se abre en {PULLS_URL}", size=12, bold=True, color=TEAL, align="c")
+        d.box(s, 0.45, y, 2.0, h, label, fill=col, size=12, margin=0.05)
+        d.text(s, 2.58, y, 6.95, h, commits, size=10, font=k.FONT_CODE, color=INK, space_after=0,
+               anchor="m", check=False)
+        y += h + 0.07
+    d.text(s, 0.45, y + 0.04, 9.1, 0.3, PR_URL, size=12, bold=True, color=TEAL, align="c")
+    d.text(s, 0.45, y + 0.36, 9.1, 0.3, "Las fases 4 a 7 no estaban en el plan: salieron al implementar y "
+           "en el pipeline del PR.", size=12, color=GRAY, align="c")
     d.notes(s, """
-        Este es el PR de ejemplo del repo, en la rama feat/renovar-prestamo, y resuelve la misma actividad
-        que acaban de hacer. Léanlo commit por commit, porque el orden es el mensaje. Primero la spec y el
-        contrato: SPEC-LIB-03 con las reglas RENEW-R1 a R4, la operación renewLoan y el campo renewalCount
-        en el OpenAPI, y el flujo FLOW-PRE-04 en Gherkin, sin una línea de código. Después los tests en
-        rojo, en el frontend y en el backend: citan los IDs de la spec y fallan porque todavía no hay
-        implementación. Recién después la implementación, el verde. Fíjense que en cada commit el pipeline
-        cuenta una historia distinta: en el commit de spec oasdiff revisa que el contrato siga siendo
-        compatible, en el rojo los tests fallan por la razón correcta y en el verde todo pasa. Al final el
-        comentario del PR muestra el GIF de FLOW-PRE-04, la fila nueva de renewLoan en la tabla de
-        endpoints, las reglas RENEW en spec-trace y el resumen de seguridad. El PR está en la pestaña Pull
-        requests del repositorio.
+        Este es el PR de ejemplo, el número 10, en la rama feat/renovar-prestamo. Resuelve la misma
+        actividad que acaban de hacer, y se lee commit por commit, porque el orden es el mensaje. Uno: la
+        spec y el contrato, SPEC-LIB-03 con las reglas RENEW-R1 a R4, renewLoan en el OpenAPI y el flujo
+        FLOW-PRE-04 en Gherkin, sin una línea de código. Dos: los tests en rojo, en el frontend y en el
+        backend, que citan los IDs de la spec y fallan porque todavía no hay implementación. Tres: el verde,
+        el código mínimo en las dos apps. Hasta ahí, el plan. Lo interesante es lo que vino después. Cuatro:
+        al implementar aparecieron ambigüedades, como en qué orden responder los 409 si se incumplen varias
+        reglas, y se resolvieron en la spec, no en el código. Además el smoke del stack real se extendió a
+        renewLoan. Cinco: el test visual no detectaba el botón Renovar nuevo y hubo que endurecer la
+        tolerancia. Seis: el bot de CI regeneró la captura de referencia en la imagen de Playwright. Siete:
+        oasdiff marcó que el contrato rompía compatibilidad y se corrigió con un schema propio. Las fases
+        cinco y siete son la siguiente diapositiva.
+    """)
+
+    s = d.content("Lo que el pipeline encontró en el PR de ejemplo")
+    stories = [
+        ("oasdiff, etapa 2: cambio incompatible", RED,
+         "RENEWAL_LIMIT_REACHED y LOAN_OVERDUE entraron al enum compartido ErrorCode. Eso cambia la respuesta "
+         "de error de todos los endpoints: un cliente con un switch exhaustivo sobre code deja de compilar.",
+         "renewLoan declara RenewalProblem con su propio enum y ErrorCode queda igual que en main.",
+         "Agregar un valor a un enum compartido también rompe el contrato. Mejor que lo diga una máquina en "
+         "el PR que un cliente en producción."),
+        ("Test visual, etapa 7: tolerancia laxa", ORANGE,
+         "Con maxDiffPixelRatio 0.01 se toleraba el 1 por ciento de la página, unos 10.000 píxeles. El botón "
+         "Renovar nuevo ocupaba menos que eso y el test visual pasaba sin notarlo.",
+         "maxDiffPixels 25: las referencias se generan y comparan en la misma imagen de CI. El bot regeneró "
+         "la captura de Mis préstamos.",
+         "Una tolerancia relativa esconde cambios chicos pero importantes. Prueba el test con un cambio real: "
+         "si no falla, no protege."),
+    ]
+    for i, (title, col, what, fix, moral) in enumerate(stories):
+        x = 0.45 + i * 4.65
+        d.card(s, x, 1.05, 4.45, 3.97, fill=LIGHT)
+        d.box(s, x, 1.05, 4.45, 0.42, title, fill=col, size=13)
+        d.text(s, x + 0.15, 1.55, 4.15, 0.28, "Qué pasó", size=12, bold=True, color=col)
+        d.text(s, x + 0.15, 1.82, 4.15, 1.05, what, size=12)
+        d.text(s, x + 0.15, 2.9, 4.15, 0.28, "Cómo se resolvió", size=12, bold=True, color=col)
+        d.text(s, x + 0.15, 3.17, 4.15, 0.62, fix, size=12)
+        d.card(s, x + 0.12, 3.86, 4.21, 1.06, fill=WHITE)
+        d.text(s, x + 0.25, 3.9, 3.95, 0.98, f"**Moraleja.** {moral}", size=12, color=col, anchor="m")
+    d.notes(s, """
+        Dos historias reales del PR de ejemplo que valen más que cualquier diapositiva teórica. La primera:
+        para los errores nuevos de renovación se agregaron dos valores al enum ErrorCode, que comparten
+        todas las respuestas de error. Parece inofensivo, pero oasdiff lo marcó como cambio incompatible:
+        un cliente que hace un switch exhaustivo sobre el código deja de compilar. La solución fue que
+        renewLoan tenga su propio schema, RenewalProblem, con su enum, y ErrorCode quedó igual que en main.
+        La segunda: el test visual de Mis préstamos seguía en verde aunque apareció un botón nuevo, porque
+        la tolerancia era el 1 por ciento de la página, unos 10.000 píxeles, y el botón ocupaba menos. Se
+        cambió a una tolerancia absoluta de 25 píxeles, posible porque las referencias se generan y comparan
+        en la misma imagen de CI, y el bot regeneró la captura. La moraleja común: un control automático
+        vale lo que vale su configuración. Pregunta para el curso: ¿qué otra tolerancia o umbral de su
+        proyecto nunca han probado con un cambio real?
     """)
 
     d.section("Cierre")
@@ -2355,13 +2432,19 @@ y specs/features/SPEC-LIB-03-renovacion.md.
     """)
 
 
-# Commits del PR de ejemplo (rama feat/renovar-prestamo), en el orden en que se hicieron.
+# Commits del PR de ejemplo (PR #10, rama feat/renovar-prestamo), agrupados por fase y en el orden en que se
+# hicieron (git log --oneline origin/main..feat/renovar-prestamo).
 PR_COMMITS = {
     "spec": ["docs(specs): SPEC-LIB-03 renovar préstamo (contrato y flujo primero)"],
     "red": ["test(frontend): renovar préstamo en Mis préstamos y mock server (fallan: SDD rojo)",
             "test(backend): renovar préstamo RENEW-R1 a RENEW-R4 (fallan: SDD rojo)"],
     "green": ["feat(frontend): renovar préstamo desde Mis préstamos (SPEC-LIB-03)",
               "feat(backend): renovar préstamo en todas las capas (SPEC-LIB-03)"],
+    "adjust": ["docs(specs): orden de errores al renovar y ajustes del contrato",
+               "test(tools): el smoke de API del stack real cubre renewLoan"],
+    "visual": ["test(frontend): tolerancia visual absoluta y estricta"],
+    "bot": ["test(visual): capturas de referencia generadas en la imagen de Playwright de CI"],
+    "oasdiff": ["fix(specs): error 409 de renovación con schema propio (oasdiff)"],
 }
 
 
