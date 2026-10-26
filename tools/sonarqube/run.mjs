@@ -287,6 +287,19 @@ async function configure(baseUrl, password, gate) {
     auth,
     params: { name: gate.name },
   })
+  // Las versiones nuevas crean la gate con condiciones por defecto (por ejemplo cobertura del
+  // código nuevo). Se borran para que la gate tenga exactamente las condiciones de este proyecto.
+  const created = await api(baseUrl, '/api/qualitygates/show', {
+    auth,
+    params: { name: gate.name },
+  })
+  for (const existing of created?.conditions ?? []) {
+    await api(baseUrl, '/api/qualitygates/delete_condition', {
+      method: 'POST',
+      auth,
+      params: { id: existing.id },
+    })
+  }
   for (const condition of gate.conditions) {
     await api(baseUrl, '/api/qualitygates/create_condition', {
       method: 'POST',

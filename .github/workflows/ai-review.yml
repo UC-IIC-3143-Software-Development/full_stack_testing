@@ -77,6 +77,8 @@ jobs:
       - name: Revisar el PR con Gemini
         id: gemini
         if: env.HAS_GEMINI_KEY == 'true'
+        # Si el modelo está saturado (HTTP 503) se reintenta con un modelo más liviano
+        continue-on-error: true
         uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
         env:
           # Sin esto Gemini CLI puede ignorar .gemini/settings.json por la confianza de carpetas
@@ -137,11 +139,75 @@ jobs:
             No repitas lo que ya revisan las herramientas automáticas (formato, lint, tipos).
             Si no encuentras problemas, dilo en dos líneas. No modifiques ningún otro archivo.
 
+      - name: Reintentar con un modelo más liviano (flash-lite)
+        id: gemini_lite
+        if: env.HAS_GEMINI_KEY == 'true' && steps.gemini.outcome == 'failure'
+        continue-on-error: true
+        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
+        env:
+          # Sin esto Gemini CLI puede ignorar .gemini/settings.json por la confianza de carpetas
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY || vars.GEMINI_API_KEY }}
+          settings: |-
+            {
+              "model": {
+                "name": "flash-lite",
+                "maxSessionTurns": 30
+              },
+              "context": {
+                "fileName": ["GEMINI.md", "AGENTS.md", "CLAUDE.md"]
+              },
+              "tools": {
+                "exclude": ["run_shell_command", "web_fetch", "google_web_search"]
+              }
+            }
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Eres revisor de código del proyecto Biblioteca UC. El proyecto usa Spec Driven
+            Development: las specs son la fuente de verdad. Sigue las instrucciones de AGENTS.md
+            y CLAUDE.md. Responde en español de Chile, con tuteo, sin guiones largos ni punto y coma.
+
+            El diff del PR está en .gemini-review/pr.diff y la lista de archivos cambiados en
+            .gemini-review/archivos.txt. Revisa SOLO lo que cambió.
+
+            1. Lee primero, en este orden:
+               - specs/constitution.md (principios, en especial P4 política de tests y P5
+                 seguridad). Calidad antes que cantidad: importa que cada test cubra un flujo
+                 real o una regla de la spec, no el número de tests.
+               - specs/architecture.md (capas y reglas ARCH-R1 a ARCH-R8)
+               - las specs de features en specs/features/ relacionadas con los archivos del diff
+               - el SPEC.md de cada carpeta de capa tocada (por ejemplo backend/src/loans/domain/SPEC.md)
+            2. Revisa el diff contra las specs:
+               - Reglas de negocio: el código implementa la regla con ID tal como dice la spec.
+                 Si el PR agrega comportamiento que no está en ninguna spec, pídelo (P1).
+               - Arquitectura: imports que cruzan capas (domain que importa NestJS o TypeORM,
+                 presentation que usa repositorios, componentes que llaman fetch directo).
+               - Política de tests (P4): tests sin ID de regla en el título (huérfanos), más de
+                 6 tests por regla y capa, variantes del mismo caso en vez de particiones,
+                 mocks con jest.fn o vi.fn sin justificación, aserciones débiles (toBeDefined,
+                 toBeTruthy), esperas fijas (waitForTimeout), tests duplicados entre capas y
+                 oráculos que recalculan la lógica de producción.
+               - Contrato: cambios de API que no partieron por specs/api/openapi.yaml.
+               - Seguridad (OWASP Top 10): inyección, validación de entrada, secretos, datos
+                 sensibles en logs, dependencias nuevas innecesarias.
+            3. Escribe la revisión completa en Markdown en el archivo .gemini-review/revision.md
+               con estas secciones:
+               - Veredicto: aprobar, aprobar con cambios menores o pedir cambios.
+               - Reglas de spec afectadas.
+               - Hallazgos por categoría. Cada hallazgo indica archivo y línea, cita el ID de
+                 la regla o el principio (por ejemplo "P4.3" o "ARCH-R3") y propone el cambio.
+               - Tests que faltan o sobran.
+            No repitas lo que ya revisan las herramientas automáticas (formato, lint, tipos).
+            Si no encuentras problemas, dilo en dos líneas. No modifiques ningún otro archivo.
+
       - name: Publicar la revisión en el PR
         if: env.HAS_GEMINI_KEY == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          GEMINI_SUMMARY: ${{ steps.gemini.outputs.summary }}
+          GEMINI_SUMMARY: ${{ steps.gemini.outputs.summary || steps.gemini_lite.outputs.summary }}
         with:
           script: |
             const fs = require('node:fs')
@@ -151,7 +217,8 @@ jobs:
               ? fs.readFileSync(file, 'utf8')
               : (process.env.GEMINI_SUMMARY ?? '')
             if (!review.trim()) {
-              core.setFailed('Gemini no generó la revisión. Revisa el log del paso anterior.')
+              // Una caída del proveedor (por ejemplo 503 por alta demanda) no debe bloquear el PR
+              core.warning('Gemini no generó la revisión (el modelo no respondió). Se reintenta en el próximo push.')
               return
             }
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
