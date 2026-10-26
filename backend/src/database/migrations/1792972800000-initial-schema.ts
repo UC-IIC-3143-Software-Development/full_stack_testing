@@ -2,7 +2,7 @@ import type { MigrationInterface, QueryRunner } from 'typeorm'
 
 /**
  * Esquema inicial. Las reglas que la base de datos debe garantizar aunque falle el código
- * (data testing, Full Stack Testing cap. 5) se escriben aquí de forma explícita:
+ * (data testing) se escriben aquí de forma explícita:
  *
  * - BOOK-R2: índice único en isbn.
  * - BOOK-R4: CHECK 1 <= total_copies <= 50 y 0 <= available_copies <= total_copies.

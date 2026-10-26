@@ -77,7 +77,7 @@ Decisiones que vale la pena mirar:
 - **Transacciones sin TypeORM en la aplicación.** `UnitOfWork.run()` es un puerto. Su
   implementación (`TypeOrmUnitOfWork`) guarda el EntityManager de la transacción en un
   `AsyncLocalStorage` y los repositorios lo usan sin enterarse.
-- **La base de datos también defiende las reglas** (cap. 5 del libro, _data testing_):
+- **La base de datos también defiende las reglas** (_data testing_):
   índice único de ISBN (BOOK-R2), `CHECK` de copias (BOOK-R4), índice único parcial de
   préstamos no devueltos (LOAN-R4), `UPDATE` condicional para la última copia (LOAN-R1),
   `pg_advisory_xact_lock` por correo (LOAN-R2) y, para la renovación, `CHECK` de
@@ -259,6 +259,7 @@ usuario `node` (no root), `HEALTHCHECK` contra `/api/health` y migraciones al in
 1. Escribe la regla con ID en la spec de la feature (por ejemplo `LOAN-R8`).
 2. Si cambia la API, cambia primero `specs/api/openapi.yaml`.
 3. Actualiza el `SPEC.md` de cada capa que cambia (tabla regla, dónde, test).
-4. Propón la lista de casos (regla, capa, partición) y espera aprobación. Luego escribe los
-   tests que fallan, en la capa más baja posible.
+4. Escribe pruebas que cubran flujos reales o las reglas de la spec, en la capa más baja
+   posible. Calidad antes que cantidad (constitución P4.7): cada prueba debe poder fallar ante
+   un error real. Escríbelas primero y comprueba que fallan.
 5. Implementa hasta que `lint`, `typecheck`, `test:arch` y todos los `test:*` queden en verde.

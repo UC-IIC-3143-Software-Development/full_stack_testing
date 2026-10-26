@@ -141,6 +141,8 @@ La constitución (`specs/constitution.md`, P4) se verifica con herramientas, no 
 - Máximo 6 tests por regla y capa: particiones de equivalencia y valores límite, no variantes del mismo caso.
 - Cada test vive en la capa más baja que detecta el defecto. Por ejemplo, la validación del ISBN se
   prueba en `isbn.test.ts` y el flujo E2E solo verifica que el error se muestre.
+- Calidad antes que cantidad (P4.7): el avance no se mide por el número de tests. Cada test cubre un
+  flujo real o una regla de la spec. Si no fallaría ante ningún error real, no se agrega.
 - Stryker mide si los tests detectan cambios reales en el código. En este proyecto encontró que los
   dos ISBN válidos de ejemplo no distinguían el orden de los pesos 1 y 3, y se agregó un caso.
 
