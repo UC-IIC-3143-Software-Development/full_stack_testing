@@ -362,7 +362,7 @@ jobs:
             semgrep/semgrep:1.182.1 semgrep scan \
             --config p/default --config p/typescript --config p/nodejs --config p/owasp-top-ten \
             --config .semgrep/rules.yml \
-            --exclude .semgrep --exclude tools/__fixtures__ --exclude clase-practica \
+            --exclude .semgrep --exclude tools/__fixtures__ \
             --metrics=off \
             --json-output=reports/semgrep/semgrep.json \
             --sarif-output=reports/semgrep/semgrep.sarif
@@ -404,7 +404,6 @@ jobs:
           config: |
             paths-ignore:
               - tools/__fixtures__
-              - clase-practica
               - .semgrep
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
@@ -486,7 +485,7 @@ jobs:
           mkdir -p reports/trivy "$HOME/.cache/trivy"
           docker run --rm -v "$PWD:/src" -w /src -v "$HOME/.cache/trivy:/root/.cache/trivy" \
             aquasec/trivy:0.76.1 fs --scanners vuln,secret,misconfig \
-            --skip-dirs tools/__fixtures__ --skip-dirs clase-practica \
+            --skip-dirs tools/__fixtures__ \
             --format json --output reports/trivy/trivy-fs.json .
           docker run --rm -v "$PWD:/src" -w /src -v "$HOME/.cache/trivy:/root/.cache/trivy" \
             aquasec/trivy:0.76.1 convert --format sarif --output reports/trivy/trivy-fs.sarif \

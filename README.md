@@ -11,10 +11,8 @@ tests sin terminar con miles de tests que no valen la pena?** La respuesta tiene
 partes: specs con reglas identificadas, una política de tests explícita (constitución P4)
 y un pipeline que la hace cumplir.
 
-- Presentación de la clase: [`docs/presentacion/`](docs/presentacion/)
 - Pipeline explicado etapa por etapa: [`docs/pipeline.md`](docs/pipeline.md)
 - Ejemplo del comentario de evidencia en un PR: [`docs/ejemplo-comentario-pr.md`](docs/ejemplo-comentario-pr.md)
-- Laboratorio "podar una suite inflada por IA": [`clase-practica/`](clase-practica/)
 
 ## Mapa del monorepo
 
@@ -46,8 +44,7 @@ full_stack_testing/
 ├── .gitleaks.toml             configuración de detección de secretos
 ├── .hadolint.yaml             configuración del lint de Dockerfiles
 ├── docker-compose.yml         stack completo: PostgreSQL, backend y frontend
-├── docs/                      pipeline, ejemplo de evidencia y presentación
-└── clase-practica/            laboratorio de la clase
+└── docs/                      pipeline explicado y ejemplo del comentario de evidencia
 ```
 
 ## Configuración inicial del repositorio
@@ -128,7 +125,7 @@ variantes del mismo caso.
 | Tipo | Qué verifica | Herramienta | Dónde | Etapa | Libro |
 | --- | --- | --- | --- | :---: | --- |
 | Unitario de dominio | Reglas de negocio puras (ISBN, préstamo, estado) sin mocks | Jest | `backend/src/*/domain/*.spec.ts` | 5 | p. 67 y 103 |
-| Unitario de aplicación | Casos de uso con repositorios en memoria y reloj fijo | Jest + fakes | `backend/src/*/application/*.spec.ts` | 5 | p. 103 |
+| Unitario de aplicación | Casos de uso con repositorios en memoria y fecha fija de prueba | Jest + fakes | `backend/src/*/application/*.spec.ts` | 5 | p. 103 |
 | Integración con base real | Repositorios TypeORM, índice único, `CHECK`, concurrencia | Testcontainers (PostgreSQL) | `backend/src/*/infrastructure/*.int-spec.ts` | 6 | p. 179 |
 | Contrato de la API | Respuesta HTTP real (controller a base de datos) contra el OpenAPI | supertest + Testcontainers | `backend/test/contract/` | 6 | p. 70 y 107 |
 | Unitario de frontend | Funciones puras: ISBN, fechas `dd-mm-aaaa`, etiquetas de estado | Vitest | `frontend/src/shared/domain/` | 5 | p. 188 |
