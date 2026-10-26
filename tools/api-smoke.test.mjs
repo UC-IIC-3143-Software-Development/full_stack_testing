@@ -27,14 +27,23 @@ describe('api-smoke', () => {
     assert.equal(sum % 10, 0)
   })
 
-  it('recorre las 7 operaciones del contrato y todas responden lo esperado', async () => {
+  it('recorre las 8 operaciones del contrato y todas responden lo esperado', async () => {
     const report = await runSmoke({ baseUrl, waitMs: 2000, token: 'abc123' })
     assert.equal(report.ok, true, JSON.stringify(report.results.filter((r) => !r.ok)))
     assert.deepEqual(
       [...new Set(report.results.map((r) => r.operationId))],
-      ['getHealth', 'createBook', 'listBooks', 'getBook', 'createLoan', 'listLoans', 'returnLoan'],
+      [
+        'getHealth',
+        'createBook',
+        'listBooks',
+        'getBook',
+        'createLoan',
+        'listLoans',
+        'renewLoan',
+        'returnLoan',
+      ],
     )
-    assert.match(toMarkdown(report), /17 de 17 verificaciones OK/)
+    assert.match(toMarkdown(report), /19 de 19 verificaciones OK/)
   })
 
   it('marca como fallida una API que responde 200 a todo', async () => {

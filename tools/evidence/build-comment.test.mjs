@@ -60,10 +60,19 @@ describe('build-comment: resúmenes por herramienta', () => {
     })
   })
 
-  it('lee las 7 operaciones del contrato real', () => {
+  it('lee las 8 operaciones del contrato real', () => {
     assert.deepEqual(
       loadOperations(openapi).map((op) => op.operationId),
-      ['getHealth', 'listBooks', 'createBook', 'getBook', 'listLoans', 'createLoan', 'returnLoan'],
+      [
+        'getHealth',
+        'listBooks',
+        'createBook',
+        'getBook',
+        'listLoans',
+        'createLoan',
+        'returnLoan',
+        'renewLoan',
+      ],
     )
   })
 })
