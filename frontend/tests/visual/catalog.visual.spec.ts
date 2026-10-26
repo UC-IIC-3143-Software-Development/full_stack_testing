@@ -17,3 +17,10 @@ test('[UI-CAT-2] tarjeta de un libro agotado', async ({ page }) => {
   await openCatalog(page)
   await expect(bookCard(page, 'La casa de los espíritus')).toHaveScreenshot('tarjeta-agotada.png')
 })
+
+test('[UI-CAT-7] catálogo con solo disponibles', async ({ page }) => {
+  await openCatalog(page)
+  await page.getByRole('checkbox', { name: 'Solo disponibles', exact: true }).check()
+  await expect(bookCard(page, 'La casa de los espíritus')).toHaveCount(0)
+  await expect(page).toHaveScreenshot('catalogo-solo-disponibles.png', { fullPage: true })
+})

@@ -31,3 +31,11 @@ Característica: Catálogo de libros
     Dado que estoy en el catálogo
     Cuando agrego el libro "Libro falso" de "Nadie" con ISBN "978-0-00-000000-1" y 1 copias
     Entonces veo el error "El ISBN no es válido"
+
+  @FLOW-CAT-05
+  Escenario: Ver solo los libros disponibles
+    Dado que estoy en el catálogo
+    Cuando marco la casilla "Solo disponibles"
+    Entonces no veo el libro "La casa de los espíritus"
+    Y el libro "Ficciones" aparece como "Disponible (1)"
+    Y el libro "Cien años de soledad" aparece como "Disponible (3)"

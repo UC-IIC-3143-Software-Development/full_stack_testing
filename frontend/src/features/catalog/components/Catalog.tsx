@@ -4,9 +4,13 @@ import { useState, type SubmitEvent } from 'react'
 import { BookList } from './BookList'
 import styles from './Catalog.module.css'
 
-/** Buscador más grilla. La búsqueda se envía al presionar "Buscar" (BOOK-R5 la resuelve la API). */
+/**
+ * Buscador más grilla. La búsqueda se envía al presionar "Buscar" (BOOK-R5 la resuelve la API).
+ * La casilla "Solo disponibles" filtra en el navegador sin pedir nada nuevo a la API (UI-CAT-7).
+ */
 export function Catalog() {
   const [query, setQuery] = useState('')
+  const [onlyAvailable, setOnlyAvailable] = useState(false)
 
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -27,8 +31,17 @@ export function Catalog() {
           <input id="catalog-q" name="q" type="search" maxLength={100} autoComplete="off" />
         </div>
         <button type="submit">Buscar</button>
+        <div className={styles.toggle}>
+          <input
+            id="catalog-only-available"
+            type="checkbox"
+            checked={onlyAvailable}
+            onChange={(event) => setOnlyAvailable(event.currentTarget.checked)}
+          />
+          <label htmlFor="catalog-only-available">Solo disponibles</label>
+        </div>
       </form>
-      <BookList query={query} />
+      <BookList query={query} onlyAvailable={onlyAvailable} />
     </div>
   )
 }

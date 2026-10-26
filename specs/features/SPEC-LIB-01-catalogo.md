@@ -51,6 +51,14 @@ Es la primera feature del proyecto y sirve de base para los préstamos (SPEC-LIB
   y muestra los errores del servidor junto al campo correspondiente.
 - **UI-CAT-6** Si el catálogo no se puede cargar (falla la red o la API), se muestra una alerta
   (`role="alert"`) con el texto "No pudimos cargar el catálogo. Intenta de nuevo en unos minutos."
+- **UI-CAT-7** Junto al botón "Buscar" hay una casilla con el texto "Solo disponibles", desmarcada
+  al entrar. Al marcarla se ocultan los libros agotados (0 copias disponibles) y se siguen viendo
+  los que tienen 1 copia o más. El filtro se aplica en el navegador sobre la lista que ya entregó
+  `listBooks`, sin otra solicitud a la API y sin cambiar el contrato. Se combina con la búsqueda:
+  filtra los resultados de la búsqueda actual y se mantiene al buscar otra vez. Si la búsqueda
+  tiene resultados pero ninguno está disponible, se muestra el mensaje "No hay libros disponibles
+  para tu búsqueda. Desmarca “Solo disponibles” para ver los agotados." La casilla tiene su
+  label asociado y muestra el foco al navegar con teclado.
 
 ## Criterios de aceptación (mapa a los tests)
 
@@ -66,6 +74,7 @@ Es la primera feature del proyecto y sirve de base para los préstamos (SPEC-LIB
 | UI-CAT-4 | layout `catalog.layout.spec.ts` · visual `catalog.visual.spec.ts`               |
 | UI-CAT-5 | componentes `NewBookForm.test.tsx` · E2E `FLOW-CAT-03`, `FLOW-CAT-04`           |
 | UI-CAT-6 | componentes `BookList.test.tsx`                                                 |
+| UI-CAT-7 | componentes `Catalog.test.tsx` · E2E `FLOW-CAT-05` · layout y estilos (foco) `catalog.*.spec.ts` · visual `catalog.visual.spec.ts` |
 
 Cada test incluye el ID de la regla en su título, por ejemplo
 `it('[BOOK-R1] rechaza un ISBN con dígito verificador incorrecto', ...)`.

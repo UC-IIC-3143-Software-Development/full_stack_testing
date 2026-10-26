@@ -52,6 +52,22 @@ test.describe('escritorio (1280 px)', () => {
     const [firstCard] = await boxes(page.getByRole('article').first())
     expect(search.y + search.height).toBeLessThanOrEqual(firstCard.y)
   })
+
+  test('[UI-CAT-7] la casilla "Solo disponibles" queda junto al botón "Buscar"', async ({
+    page,
+  }) => {
+    await openCatalog(page)
+    const [button] = await boxes(page.getByRole('button', { name: 'Buscar', exact: true }))
+    const [checkbox] = await boxes(page.getByRole('checkbox', { name: 'Solo disponibles' }))
+    const [firstCard] = await boxes(page.getByRole('article').first())
+    const centerY = (box: { y: number; height: number }) => box.y + box.height / 2
+    expect(checkbox.x, 'la casilla está a la derecha del botón').toBeGreaterThanOrEqual(
+      button.x + button.width,
+    )
+    expect(checkbox.x - (button.x + button.width), 'distancia al botón').toBeLessThanOrEqual(32)
+    expect(Math.abs(centerY(checkbox) - centerY(button)), 'misma fila').toBeLessThanOrEqual(4)
+    expect(checkbox.y + checkbox.height).toBeLessThanOrEqual(firstCard.y)
+  })
 })
 
 test.describe('móvil (390 px)', () => {
