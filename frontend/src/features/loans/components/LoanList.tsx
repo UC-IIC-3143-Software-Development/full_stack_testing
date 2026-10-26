@@ -34,7 +34,7 @@ function refIn<T extends HTMLElement>(nodes: RefObject<Map<string, T>>, loanId: 
  * UI-LOAN-3: "Devolver" actualiza la etiqueta a "Devuelto" sin recargar la página.
  * UI-RENEW-1 y UI-RENEW-2: "Renovar" extiende la fecha sin recargar o muestra el error.
  */
-export function LoanList({ email }: { email: string }) {
+export function LoanList({ email }: Readonly<{ email: string }>) {
   const { state, loans, returnLoan, renewLoan, pending, actionFailure, lastSuccess } =
     useLoans(email)
   const returnButtons = useRef(new Map<string, HTMLButtonElement>())

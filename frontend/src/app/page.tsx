@@ -6,7 +6,7 @@ interface CatalogPageProps {
   searchParams: Promise<{ agregado?: string }>
 }
 
-export default async function CatalogPage({ searchParams }: CatalogPageProps) {
+export default async function CatalogPage({ searchParams }: Readonly<CatalogPageProps>) {
   const { agregado } = await searchParams
   return (
     <div className={styles.page}>

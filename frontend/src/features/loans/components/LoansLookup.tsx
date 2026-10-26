@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { LoanList } from './LoanList'
 import styles from './LoansLookup.module.css'
 
@@ -8,7 +8,7 @@ import styles from './LoansLookup.module.css'
 export function LoansLookup() {
   const [email, setEmail] = useState<string | null>(null)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const value = String(new FormData(event.currentTarget).get('email') ?? '').trim()
     setEmail(value || null)

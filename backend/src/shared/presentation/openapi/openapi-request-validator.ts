@@ -187,8 +187,11 @@ function compileParameters(
 
 /** "/api/books/{bookId}" se transforma en /^\/api\/books\/([^/]+)\/?$/i (Express no distingue mayúsculas). */
 function templateToRegExp(template: string): RegExp {
+  // [^{}] y no [^}] (sonarjs/super-linear-regex): con [^}], un texto con miles de "{" sin cerrar
+  // tarda segundos, porque la regex vuelve a recorrer el texto desde cada "{". Con [^{}] tarda
+  // milisegundos. Las rutas del contrato nunca tienen llaves dentro de llaves.
   const source = template
-    .split(/\{[^}]+\}/)
+    .split(/\{[^{}]+\}/)
     .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('([^/]+)')
   // eslint-disable-next-line security/detect-non-literal-regexp -- se construye desde el contrato, no desde el usuario
@@ -206,19 +209,22 @@ function safeDecode(value: string): string | null {
 /** Devuelve la ruta del primer texto con carácter nulo ("" si es la raíz) o null si no hay. */
 function findNulCharacter(value: unknown, path = ''): string | null {
   if (typeof value === 'string') return value.includes('\u0000') ? path : null
-  if (Array.isArray(value)) {
-    for (const [index, item] of value.entries()) {
-      const found = findNulCharacter(item, path ? `${path}.${index}` : String(index))
-      if (found !== null) return found
-    }
-    return null
-  }
+  if (Array.isArray(value)) return findNulInEntries(value.entries(), path)
   if (value !== null && typeof value === 'object') {
-    for (const [key, item] of Object.entries(value)) {
-      if (key.includes('\u0000')) return path || 'body'
-      const found = findNulCharacter(item, path ? `${path}.${key}` : key)
-      if (found !== null) return found
-    }
+    return findNulInEntries(Object.entries(value), path)
+  }
+  return null
+}
+
+/** Revisa en orden cada clave y cada valor de un objeto o arreglo. */
+function findNulInEntries(
+  entries: Iterable<[string | number, unknown]>,
+  path: string,
+): string | null {
+  for (const [key, item] of entries) {
+    if (String(key).includes('\u0000')) return path || 'body'
+    const found = findNulCharacter(item, path ? `${path}.${key}` : String(key))
+    if (found !== null) return found
   }
   return null
 }
@@ -237,13 +243,18 @@ function toFieldErrors(errors: ErrorObject[]): FieldError[] {
 
 function fieldOf(error: ErrorObject): string {
   const base = error.instancePath.split('/').filter(Boolean).join('.')
-  const extra =
-    error.keyword === 'required'
-      ? (error.params as { missingProperty: string }).missingProperty
-      : error.keyword === 'additionalProperties'
-        ? (error.params as { additionalProperty: string }).additionalProperty
-        : ''
-  return [base, extra].filter(Boolean).join('.') || 'body'
+  return [base, propertyOf(error)].filter(Boolean).join('.') || 'body'
+}
+
+/** Nombre de la propiedad que falta o que sobra. Los demás errores no nombran una propiedad. */
+function propertyOf(error: ErrorObject): string {
+  if (error.keyword === 'required') {
+    return (error.params as { missingProperty: string }).missingProperty
+  }
+  if (error.keyword === 'additionalProperties') {
+    return (error.params as { additionalProperty: string }).additionalProperty
+  }
+  return ''
 }
 
 const TYPE_NAMES: Record<string, string> = {
@@ -268,11 +279,7 @@ function messageFor(errors: ErrorObject[] | null | undefined): string {
     case 'type':
       return `Debe ser de tipo ${TYPE_NAMES[String(params.type)] ?? String(params.type)}`
     case 'format':
-      return params.format === 'email'
-        ? 'Debe ser un correo válido'
-        : params.format === 'uuid'
-          ? 'Debe ser un UUID válido'
-          : `No cumple el formato ${String(params.format)}`
+      return formatMessage(String(params.format))
     case 'minLength':
       return `Debe tener al menos ${String(params.limit)} caracteres`
     case 'maxLength':
@@ -288,4 +295,10 @@ function messageFor(errors: ErrorObject[] | null | undefined): string {
     default:
       return 'El valor no es válido'
   }
+}
+
+function formatMessage(format: string): string {
+  if (format === 'email') return 'Debe ser un correo válido'
+  if (format === 'uuid') return 'Debe ser un UUID válido'
+  return `No cumple el formato ${format}`
 }

@@ -5,7 +5,7 @@ import { useBook } from '@/features/catalog/hooks/useBook'
 import { BorrowForm } from '@/features/loans/components/BorrowForm'
 
 /** Composición de dos features: ficha del libro (catálogo) y formulario de préstamo. */
-export function BookScreen({ bookId }: { bookId: string }) {
+export function BookScreen({ bookId }: Readonly<{ bookId: string }>) {
   const { state, reload } = useBook(bookId)
 
   if (state.status === 'loading' || state.status === 'idle') {

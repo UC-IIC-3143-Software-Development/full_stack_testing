@@ -15,8 +15,11 @@ let command = 'npx playwright test --project=visual --update-snapshots'
 if (args.includes('--check')) command = 'npx playwright test --project=visual'
 if (args.includes('--e2e')) command = 'npm run test:e2e'
 
+// docker se busca en el PATH a propósito: su ruta cambia entre macOS, Linux y Windows.
+// SonarJS lo marca como punto a revisar (security hotspot): aquí es seguro, porque es un
+// script para tu máquina y el PATH es el tuyo.
 const docker = spawnSync(
-  'docker',
+  'docker', // eslint-disable-line sonarjs/no-os-command-from-path
   [
     'run',
     '--rm',

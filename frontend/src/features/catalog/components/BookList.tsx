@@ -5,7 +5,7 @@ import { BookCard } from './BookCard'
 import styles from './BookList.module.css'
 
 /** Grilla del catálogo (UI-CAT-1 y UI-CAT-4). Los datos vienen del hook, nunca de fetch directo (ARCH-R7). */
-export function BookList({ query }: { query: string }) {
+export function BookList({ query }: Readonly<{ query: string }>) {
   const { state } = useBooks(query)
 
   if (state.status === 'loading' || state.status === 'idle') {

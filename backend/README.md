@@ -209,6 +209,39 @@ en este repo:
 Con este tamaño de proyecto tarda unos 15 segundos, pero crece con el código. Por eso
 corre en el pipeline nightly y no en cada PR.
 
+## Reglas de SonarQube y SonarLint en el lint (SonarJS)
+
+SonarQube revisa la calidad del código. Sus reglas para JavaScript y TypeScript se llaman
+**SonarJS**, y SonarSource (la empresa detrás de SonarQube) las publica gratis como plugin de ESLint:
+[`eslint-plugin-sonarjs`](https://www.npmjs.com/package/eslint-plugin-sonarjs). Son las mismas
+reglas que usan SonarQube y SonarLint, así que tienes sus hallazgos sin pagar ni levantar un
+servidor. Buscan tres cosas:
+
+- **Bugs**: código que probablemente hace algo distinto de lo que crees.
+- **Code smells** (código con "mal olor"): funciona, pero cuesta leerlo o cambiarlo sin romper algo.
+- **Security hotspots** (puntos de seguridad a revisar): código sensible que una persona debe
+  mirar para decidir si es seguro.
+
+Usamos la config `recommended` en `eslint.config.mjs`. Corre con `npm run lint` y en CI en la
+etapa 2 (job `calidad-backend`): un hallazgo hace fallar el PR. Al activarla encontró 6:
+
+| Regla                       | Dónde                                          | Qué se hizo                                                                                |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `super-linear-regex`        | `templateToRegExp`                             | `/\{[^}]+\}/` pasó a `/\{[^{}]+\}/`. Con 50.000 `{` sin cerrar tardaba 3,8 s y ahora 0 ms  |
+| `cognitive-complexity`      | `findNulCharacter`                             | Tenía complejidad 25 (el máximo es 15). Se separó en dos funciones                         |
+| `no-nested-conditional` (3) | `fieldOf`, `messageFor` y el fake de préstamos | Ternarios dentro de ternarios pasaron a `if`                                               |
+| `no-empty-test-file`        | `test/fakes/in-memory-repositories.spec.ts`    | Falso positivo: los tests vienen de funciones importadas. Se desactivó solo en ese archivo |
+
+La **complejidad cognitiva** mide cuánto cuesta entender una función: suma un punto por cada
+`if`, `for` o `catch`, y más si están unos dentro de otros. Si una regla no aplica, se desactiva
+solo donde no aplica y con un comentario que explica por qué, como con `eslint-plugin-security`.
+
+**En el editor.** VS Code (con la extensión ESLint) y Zed (trae ESLint) muestran estos hallazgos
+mientras escribes. Si no ves nada, abre la carpeta `backend/` y no la raíz del repo, o en VS Code
+agrega `"eslint.workingDirectories": [{ "mode": "auto" }]` a tu configuración. Para VS Code y
+JetBrains existe además la extensión gratuita **SonarQube for IDE** (antes SonarLint): explica
+cada regla con ejemplos y trae algunas reglas más. Lo que decide si el PR pasa es `npm run lint`.
+
 ## Imagen Docker
 
 El contexto de build es la raíz del repo, porque el contrato vive en `specs/`:

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import type { Loan } from '@/shared/api/types'
 import { formatDate } from '@/shared/domain/date-format'
 import { GENERIC_ERROR_MESSAGE, loanConflictMessage } from './loan-error-messages'
@@ -17,13 +17,13 @@ interface BorrowFormProps {
  * UI-LOAN-1: pide el correo y, al confirmar, muestra "Préstamo registrado" y la
  * fecha de devolución dd-mm-aaaa. UI-LOAN-4: traduce los 409 a mensajes en español.
  */
-export function BorrowForm({ bookId, disabled = false, onBorrowed }: BorrowFormProps) {
+export function BorrowForm({ bookId, disabled = false, onBorrowed }: Readonly<BorrowFormProps>) {
   const { createLoan, pending } = useCreateLoan()
   const [loan, setLoan] = useState<Loan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const email = String(new FormData(event.currentTarget).get('email') ?? '')
     setError(null)

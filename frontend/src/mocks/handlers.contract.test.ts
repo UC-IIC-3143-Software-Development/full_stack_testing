@@ -118,8 +118,9 @@ async function expectContract(testCase: ContractCase) {
   ).toContain(String(response.status))
   const documented = documentedResponse(op, response.status)!
 
-  // "application/problem+json" sin parámetros como el charset.
-  const mediaType = (response.headers.get('content-type') ?? '').replace(/\s*\u003b.*$/, '')
+  // "application/problem+json" sin parámetros como el charset. Se usa split y no una regex:
+  // la regex anterior tardaba mucho más con un texto lleno de espacios (sonarjs/super-linear-regex).
+  const mediaType = (response.headers.get('content-type') ?? '').split(';')[0].trim()
   expect(
     Object.keys(documented.content ?? {}),
     `${op.operation.operationId} ${response.status} no documenta ${mediaType}`,
@@ -316,7 +317,9 @@ describe('Cobertura del contrato en el mock server', () => {
       .filter((h) => h instanceof HttpHandler)
       .map((h) => `${String(h.info.method)} ${String(h.info.path)}`)
     const expected = operations.map((op) => `${op.method} *${op.path.replace(/\{(\w+)\}/g, ':$1')}`)
-    expect(handlers.sort()).toEqual(expected.sort())
+    // toSorted no cambia el arreglo original y localeCompare ordena el texto como se espera.
+    const byText = (a: string, b: string) => a.localeCompare(b)
+    expect(handlers.toSorted(byText)).toEqual(expected.toSorted(byText))
   })
 
   it('[MOCK-R1] la tabla de casos ejercita cada status documentado', () => {

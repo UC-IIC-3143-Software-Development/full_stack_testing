@@ -73,5 +73,6 @@ export class InMemoryLoanRepository implements LoanRepository, Snapshottable {
 function newestFirst(a: Loan, b: Loan): number {
   const byDate = b.loanedAt.getTime() - a.loanedAt.getTime()
   if (byDate !== 0) return byDate
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  if (a.id === b.id) return 0
+  return a.id < b.id ? -1 : 1
 }

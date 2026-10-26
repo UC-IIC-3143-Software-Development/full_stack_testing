@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: 'Catálogo y préstamos de la Biblioteca UC. Proyecto de ejemplo de IIC3143.',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="es-CL">
       <body>

@@ -144,6 +144,37 @@ La constitución (`specs/constitution.md`, P4) se verifica con herramientas, no 
 - Stryker mide si los tests detectan cambios reales en el código. En este proyecto encontró que los
   dos ISBN válidos de ejemplo no distinguían el orden de los pesos 1 y 3, y se agregó un caso.
 
+## Reglas de SonarQube y SonarLint en el lint (SonarJS)
+
+SonarQube revisa la calidad del código. Sus reglas para JavaScript y TypeScript se llaman
+**SonarJS**, y SonarSource (la empresa detrás de SonarQube) las publica gratis como plugin de ESLint:
+[`eslint-plugin-sonarjs`](https://www.npmjs.com/package/eslint-plugin-sonarjs). Son las mismas
+reglas que usan SonarQube y SonarLint, así que tienes sus hallazgos sin pagar ni levantar un
+servidor. Buscan **bugs**, **code smells** (código que funciona, pero cuesta leer o cambiar) y
+**security hotspots** (código sensible que una persona debe revisar para decidir si es seguro).
+
+Usamos la config `recommended` en `eslint.config.mjs`, con información de tipos de TypeScript:
+sin ella, ESLint se salta en silencio las reglas que necesitan conocer los tipos (57 de las 230
+que activa `recommended`). Corre con `npm run lint` y en CI en la etapa 2 (job `calidad-frontend`):
+un hallazgo hace fallar el PR. Al activarla encontró 28 (sin información de tipos solo veía 4):
+
+| Regla                                                  | Cuántos | Qué se hizo                                                                                                        |
+| ------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `prefer-read-only-props`                               | 12      | Las props de cada componente quedaron como `Readonly<...>`: un componente no debe cambiar sus props                |
+| `deprecation`                                          | 8       | Los tipos de React 19 marcan `FormEvent` como obsoleto (ese evento no existe). `onSubmit` entrega un `SubmitEvent` |
+| `no-misleading-array-reverse` y `no-alphabetical-sort` | 4       | `sort()` cambia el arreglo original. Se usa `toSorted()` con `localeCompare`                                       |
+| `super-linear-regex`                                   | 1       | Una regex que tardaba mucho con muchos espacios seguidos se cambió por `split`                                     |
+| `no-os-command-from-path`                              | 2       | Punto a revisar en `scripts/`: buscar `npm` y `docker` en el PATH es intencional. Se dejó con un comentario        |
+| `regex-complexity`                                     | 1       | La regex de correo del mock es una copia exacta de la del backend (ajv-formats). Se dejó con un comentario         |
+
+Si una regla no aplica, se desactiva solo en esa línea con un comentario que explica por qué.
+
+**En el editor.** VS Code (con la extensión ESLint) y Zed (trae ESLint) muestran estos hallazgos
+mientras escribes. Si no ves nada, abre la carpeta `frontend/` y no la raíz del repo, o en VS Code
+agrega `"eslint.workingDirectories": [{ "mode": "auto" }]` a tu configuración. Para VS Code y
+JetBrains existe además la extensión gratuita **SonarQube for IDE** (antes SonarLint): explica
+cada regla con ejemplos y trae algunas reglas más. Lo que decide si el PR pasa es `npm run lint`.
+
 ## Docker
 
 ```bash

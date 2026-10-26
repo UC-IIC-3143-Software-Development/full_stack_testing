@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { BookList } from './BookList'
 import styles from './Catalog.module.css'
 
@@ -8,7 +8,7 @@ import styles from './Catalog.module.css'
 export function Catalog() {
   const [query, setQuery] = useState('')
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     setQuery(String(data.get('q') ?? ''))

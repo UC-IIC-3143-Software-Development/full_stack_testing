@@ -28,7 +28,10 @@ const RENEWAL_DAYS = 7
 const MAX_RENEWALS = 1
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // Mismo patrón que el formato email de ajv-formats, que usa el backend para validar el contrato.
+// Es una copia exacta a propósito: si la simplificamos, el mock acepta o rechaza correos
+// distintos que el backend. Por eso no se cumple el límite de sonarjs/regex-complexity (21 de 20).
 const EMAIL =
+  // eslint-disable-next-line sonarjs/regex-complexity -- copia exacta de ajv-formats
   /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i
 const EMAIL_MAX_LENGTH = 254
 
