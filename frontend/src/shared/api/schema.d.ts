@@ -96,6 +96,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/loans/overdue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista los préstamos vencidos
+         * @description Devuelve los préstamos no devueltos con estado OVERDUE, del que venció hace más
+         *     tiempo al más reciente (LOAN-R8). Se puede filtrar por correo y limitar la cantidad.
+         */
+        get: operations["listOverdueLoans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/loans/{loanId}/return": {
         parameters: {
             query?: never;
@@ -538,6 +559,38 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    listOverdueLoans: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Correo de la persona (se compara sin distinguir mayúsculas).
+                 * @example ana@uc.cl
+                 */
+                borrowerEmail?: string;
+                /**
+                 * @description Cantidad máxima de préstamos que se devuelven. Por defecto 20.
+                 * @example 10
+                 */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lista de préstamos vencidos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Loan"][];
+                };
+            };
+            400: components["responses"]["ValidationError"];
         };
     };
     returnLoan: {

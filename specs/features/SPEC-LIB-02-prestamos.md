@@ -3,7 +3,7 @@
 | Campo              | Valor                                                            |
 | ------------------ | ---------------------------------------------------------------- |
 | ID                 | SPEC-LIB-02 · versión 1                                          |
-| Contrato API       | `specs/api/openapi.yaml` (`createLoan`, `listLoans`, `returnLoan`) |
+| Contrato API       | `specs/api/openapi.yaml` (`createLoan`, `listLoans`, `returnLoan`, `listOverdueLoans`) |
 | Flujos de usuario  | `specs/flows/prestamos.feature`                                  |
 | Depende de         | SPEC-LIB-01                                                      |
 | Specs por capa     | `backend/src/loans/*/SPEC.md`, `frontend/src/features/loans/SPEC.md` |
@@ -39,6 +39,11 @@ copias que no existen y limitar cuántos libros puede tener una persona al mismo
   actual es posterior a `dueAt`, y `ACTIVE` en otro caso. El estado se calcula, no se guarda.
 - **LOAN-R7 · Correo.** El correo se normaliza a minúsculas y sin espacios. Debe ser un correo
   válido. Libro inexistente al prestar: 404 `BOOK_NOT_FOUND`.
+- **LOAN-R8 · Préstamos vencidos.** `GET /api/loans/overdue` lista los préstamos no devueltos
+  cuyo estado es `OVERDUE` (LOAN-R6), del que venció hace más tiempo al más reciente. Si se envía
+  `borrowerEmail`, solo lista los de ese correo (sin distinguir mayúsculas). `limit` indica cuántos
+  préstamos devolver como máximo y por defecto son 20. Cada elemento de la respuesta es un `Loan`
+  del contrato, sin campos extra.
 
 - **Orden de validación al prestar.** Si una solicitud incumple varias reglas, responde el primer
   error de esta lista: correo inválido (400), libro inexistente (404), `DUPLICATE_LOAN` (LOAN-R4),
@@ -72,6 +77,7 @@ copias que no existen y limitar cuántos libros puede tener una persona al mismo
 | LOAN-R5   | unit dominio `loan.spec.ts` · unit aplicación `return-loan.spec.ts` · contrato (200, 404, 409) |
 | LOAN-R6   | unit dominio `loan.spec.ts` (límite exacto de `dueAt`) · unit frontend `loan-status.test.ts` |
 | LOAN-R7   | unit dominio `email.spec.ts` · contrato (400 y 404)                            |
+| LOAN-R8   | contrato `loans-overdue.contract.spec.ts` (200 validado contra el OpenAPI) · contrato de mocks (200 y 400) |
 | UI-LOAN-1 | unit frontend `date-format.test.ts` · componentes `BorrowForm.test.tsx` · E2E `FLOW-PRE-01` |
 | UI-LOAN-2 | componentes `LoanList.test.tsx` · estilos `loans.style.spec.ts`                |
 | UI-LOAN-3 | componentes `LoanList.test.tsx` · E2E `FLOW-PRE-02`                            |

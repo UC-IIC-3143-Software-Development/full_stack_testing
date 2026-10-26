@@ -57,6 +57,11 @@ export class OpenApiRequestValidator {
     const ajv = new Ajv2020({ allErrors: true, strict: false })
     addFormats(ajv)
     ajv.addFormat('uuid', STRICT_UUID)
+    // Los parámetros de la query siempre llegan como texto. Este Ajv convierte "10" en 10 solo
+    // para validar un parámetro de tipo integer (por ejemplo limit de listOverdueLoans).
+    const queryAjv = new Ajv2020({ allErrors: true, strict: false, coerceTypes: true })
+    addFormats(queryAjv)
+    queryAjv.addFormat('uuid', STRICT_UUID)
 
     const operations: CompiledOperation[] = []
     for (const [template, pathItem] of Object.entries(document.paths)) {
@@ -70,7 +75,7 @@ export class OpenApiRequestValidator {
           method: method.toUpperCase(),
           pattern: templateToRegExp(template),
           pathParameters: compileParameters(ajv, parameters, 'path'),
-          queryParameters: compileParameters(ajv, parameters, 'query'),
+          queryParameters: compileParameters(queryAjv, parameters, 'query'),
           body: jsonBody
             ? {
                 required: operation.requestBody?.required ?? false,

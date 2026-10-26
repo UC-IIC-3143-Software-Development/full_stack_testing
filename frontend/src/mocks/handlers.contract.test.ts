@@ -194,6 +194,15 @@ const CASES = {
     status: 400,
     code: 'VALIDATION_ERROR',
   },
+  listOverdueLoans: {
+    request: { method: 'GET', path: '/api/loans/overdue?borrowerEmail=Carla@UC.cl&limit=10' },
+    status: 200,
+  },
+  listOverdueLoansBadLimit: {
+    request: { method: 'GET', path: '/api/loans/overdue?limit=diez' },
+    status: 400,
+    code: 'VALIDATION_ERROR',
+  },
   createLoan: { request: newLoan(BOOK_IDS.cienAnos, 'Ana@UC.cl'), status: 201 },
   createLoanBadEmail: {
     request: newLoan(BOOK_IDS.cienAnos, 'ana-sin-arroba'),
@@ -277,6 +286,10 @@ describe('Mock server vs specs/api/openapi.yaml', () => {
     expectContract(CASES.listLoans))
   it('[LOAN-R7] listLoans responde 400 con un correo inválido', () =>
     expectContract(CASES.listLoansBadEmail))
+  it('[LOAN-R8] listOverdueLoans responde 200 con los préstamos vencidos', () =>
+    expectContract(CASES.listOverdueLoans))
+  it('[LOAN-R8] listOverdueLoans responde 400 si limit no es un número entero', () =>
+    expectContract(CASES.listOverdueLoansBadLimit))
   it('[LOAN-R1] createLoan responde 201 cuando hay copias', () => expectContract(CASES.createLoan))
   it('[LOAN-R7] createLoan responde 400 con un correo inválido', () =>
     expectContract(CASES.createLoanBadEmail))
