@@ -8,7 +8,7 @@
 
 # 1. Dependencias exactas del lockfile. --ignore-scripts: ningún paquete ejecuta código al
 #    instalarse (defensa básica de cadena de suministro).
-FROM node:24-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /app
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --ignore-scripts
@@ -20,7 +20,7 @@ COPY backend/src ./src
 RUN npm run build && npm prune --omit=dev --ignore-scripts
 
 # 3. Imagen final: sin compilador, sin devDependencies, usuario no root.
-FROM node:24-alpine AS runtime
+FROM node:25-alpine AS runtime
 ENV NODE_ENV=production \
     PORT=3001 \
     OPENAPI_PATH=/app/openapi.yaml
