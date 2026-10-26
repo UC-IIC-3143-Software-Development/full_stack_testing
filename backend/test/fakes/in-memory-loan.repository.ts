@@ -46,6 +46,10 @@ export class InMemoryLoanRepository implements LoanRepository, Snapshottable {
     return true
   }
 
+  async markRenewed(): Promise<boolean> {
+    throw new Error('markRenewed aún no está implementado (SPEC-LIB-03)')
+  }
+
   snapshot(): Map<string, Loan> {
     return new Map(this.loans)
   }

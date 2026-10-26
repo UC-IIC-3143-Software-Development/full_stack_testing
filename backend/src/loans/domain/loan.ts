@@ -69,6 +69,15 @@ export class Loan {
   get isReturned(): boolean {
     return this.props.returnedAt !== null
   }
+  // SDD rojo: firma vacía para que compilen los tests de SPEC-LIB-03.
+  get renewalCount(): number {
+    return 0
+  }
+
+  // SDD rojo: firma vacía para que compilen los tests de SPEC-LIB-03.
+  renew(_now: Date): Loan {
+    throw new Error('Loan.renew aún no está implementado (SPEC-LIB-03)')
+  }
 
   /** LOAN-R5: registra la devolución. Si ya estaba devuelto, AlreadyReturnedError. */
   markReturned(now: Date): Loan {

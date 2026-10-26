@@ -12,6 +12,8 @@ export type ErrorCode =
   | 'LOAN_LIMIT_REACHED'
   | 'DUPLICATE_LOAN'
   | 'ALREADY_RETURNED'
+  | 'RENEWAL_LIMIT_REACHED'
+  | 'LOAN_OVERDUE'
 
 /** Error de negocio. El dominio no sabe de HTTP: la capa presentation traduce `code` a un status. */
 export abstract class DomainError extends Error {

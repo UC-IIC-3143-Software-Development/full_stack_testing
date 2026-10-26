@@ -20,6 +20,8 @@ export interface LoanRepository {
   findUnreturnedByBorrower(borrowerEmail: Email): Promise<Loan[]>
   /** Guarda la devolución solo si el préstamo seguía sin devolver. Devuelve false si ya estaba devuelto (LOAN-R5). */
   markReturned(loan: Loan): Promise<boolean>
+  /** SDD rojo: guarda una renovación (SPEC-LIB-03). */
+  markRenewed(loan: Loan): Promise<boolean>
 }
 
 export const LOAN_REPOSITORY = Symbol('LoanRepository')

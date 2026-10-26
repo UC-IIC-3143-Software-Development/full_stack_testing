@@ -1,7 +1,7 @@
 import { thrownBy } from '../../../test/support/errors'
 import { Email } from './email'
 import { Loan } from './loan'
-import { AlreadyReturnedError } from './loan.errors'
+import { AlreadyReturnedError, LoanOverdueError, RenewalLimitReachedError } from './loan.errors'
 
 function openLoan(now: string): Loan {
   return Loan.open({
@@ -63,6 +63,46 @@ describe('Loan', () => {
       const returned = loan.markReturned(new Date('2026-03-20T10:00:00.000Z'))
 
       expect(returned.statusAt(new Date('2026-04-01T00:00:00.000Z'))).toBe('RETURNED')
+    })
+  })
+
+  describe('SPEC-LIB-03 renovación', () => {
+    const loan = openLoan('2026-03-02T12:00:00.000Z') // vence 2026-03-16T12:00:00.000Z
+
+    it('[RENEW-R1] suma 7 días a dueAt, no a la hora actual, e incrementa renewalCount', () => {
+      const renewed = loan.renew(new Date('2026-03-10T08:00:00.000Z'))
+
+      expect(renewed.dueAt.toISOString()).toBe('2026-03-23T12:00:00.000Z')
+      expect([loan.renewalCount, renewed.renewalCount]).toEqual([0, 1])
+    })
+
+    it('[RENEW-R2] un préstamo ya renovado no se puede renovar otra vez', () => {
+      const renewed = loan.renew(new Date('2026-03-10T08:00:00.000Z'))
+
+      const error = thrownBy(() => renewed.renew(new Date('2026-03-11T08:00:00.000Z')))
+
+      expect(error).toBeInstanceOf(RenewalLimitReachedError)
+      expect(error).toMatchObject({ message: 'El préstamo ya fue renovado' })
+    })
+
+    it('[RENEW-R3] se puede renovar justo en el instante de vencimiento', () => {
+      const renewed = loan.renew(new Date('2026-03-16T12:00:00.000Z'))
+
+      expect(renewed.dueAt.toISOString()).toBe('2026-03-23T12:00:00.000Z')
+    })
+
+    it('[RENEW-R3] un milisegundo después del vencimiento está OVERDUE y no se puede renovar', () => {
+      expect(thrownBy(() => loan.renew(new Date('2026-03-16T12:00:00.001Z')))).toBeInstanceOf(
+        LoanOverdueError,
+      )
+    })
+
+    it('[RENEW-R3] un préstamo devuelto no se puede renovar', () => {
+      const returned = loan.markReturned(new Date('2026-03-05T10:00:00.000Z'))
+
+      expect(thrownBy(() => returned.renew(new Date('2026-03-06T10:00:00.000Z')))).toBeInstanceOf(
+        AlreadyReturnedError,
+      )
     })
   })
 })

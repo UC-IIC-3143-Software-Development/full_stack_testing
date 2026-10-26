@@ -98,6 +98,10 @@ export class TypeOrmLoanRepository implements LoanRepository {
       .execute()
     return result.affected === 1
   }
+
+  async markRenewed(): Promise<boolean> {
+    throw new Error('markRenewed aún no está implementado (SPEC-LIB-03)')
+  }
 }
 
 function toDomain(row: LoanRow): Loan {
