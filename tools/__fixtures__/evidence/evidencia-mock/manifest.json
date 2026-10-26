@@ -34,6 +34,13 @@
       "status": "failed",
       "video": "videos/FLOW-PRE-03.webm",
       "screenshots": ["screenshots/FLOW-PRE-03-1-error.png"]
+    },
+    {
+      "id": "FLOW-PRE-04",
+      "title": "Renovar un préstamo al día",
+      "status": "flaky",
+      "video": "videos/FLOW-PRE-04.webm",
+      "screenshots": ["screenshots/FLOW-PRE-04-1-renovado.png"]
     }
   ]
 }

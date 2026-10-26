@@ -12,6 +12,7 @@
 #
 # Primer ciclo de feedback (etapas 1 a 7): código estático y pruebas que no necesitan
 # desplegar nada. Segundo ciclo (etapas 8 y 9): la aplicación construida y corriendo.
+# La etapa 8 espera a las etapas 2 y 5 en verde: el ciclo lento no parte si el rápido falla.
 # Libro Full Stack Testing, cap. 4, p. 126 a 128.
 name: CI
 
@@ -74,6 +75,8 @@ jobs:
               - '.spectral.yaml'
               - '.gitleaks.toml'
               - '.hadolint.yaml'
+              - '.prettierrc.json'
+              - '.editorconfig'
 
       - name: Decidir qué etapas corren
         id: decidir
@@ -416,15 +419,34 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      pull-requests: write # dependency review comenta el resumen en el PR solo cuando falla
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Necesita el Dependency graph activado en el repo. Si no lo está, la acción falla
+      # con "Dependency review is not supported on this repository". Por eso no bloquea:
+      # npm audit (abajo) y Trivy fs siguen siendo las compuertas de dependencias.
       - name: Dependencias nuevas del PR (falla con severidad high)
+        id: dependency-review
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          comment-summary-in-pr: on-failure
+      - name: Aviso si dependency review no pudo correr o falló
+        if: ${{ !cancelled() && steps.dependency-review.outcome == 'failure' }}
+        run: |
+          echo "::warning title=Dependency review::No bloqueó el PR. Revisa el log del paso y activa Dependency graph en Settings, Security."
+          {
+            echo "### ⚠️ Dependency review no bloquea este PR"
+            echo ""
+            echo "El paso falló o no pudo correr. Si el log dice \"Dependency review is not supported on this repository\","
+            echo "hay que activar **Dependency graph** en Settings, Security (Advanced Security) del repositorio."
+            echo ""
+            echo "Mientras tanto, npm audit (este job) y Trivy fs siguen bloqueando dependencias vulnerables."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: npm audit de producción por app
         if: ${{ !cancelled() }}
         run: |
@@ -650,7 +672,17 @@ jobs:
   # ---------------------------------------------------------------------------
   imagenes:
     name: 8 · Build de imágenes, Trivy image y SBOM
-    needs: [cambios, calidad-backend, calidad-frontend, unit-backend, unit-frontend]
+    # El ciclo lento espera al rápido: la calidad de cada app, el contrato, la trazabilidad,
+    # el lint de infraestructura y los unitarios (etapas 2 y 5) tienen que estar en verde.
+    needs:
+      - cambios
+      - calidad-backend
+      - calidad-frontend
+      - contrato-openapi
+      - trazabilidad
+      - lint-infra
+      - unit-backend
+      - unit-frontend
     if: ${{ !cancelled() && needs.cambios.outputs.stack == 'true' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -706,14 +738,16 @@ jobs:
           path: |
             reports/trivy/*.json
           if-no-files-found: ignore
-      - name: Compuerta (vulnerabilidades CRITICAL con parche en las imágenes)
+      - name: Compuerta (secretos o vulnerabilidades CRITICAL con parche en las imágenes)
         run: |
           status=0
           for app in backend frontend
           do
-            critical=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")] | length' "reports/trivy/trivy-image-${app}.json")
-            echo "$app: $critical CRITICAL con parche"
-            if [ "$critical" -ne 0 ]
+            report="reports/trivy/trivy-image-${app}.json"
+            critical=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")] | length' "$report")
+            secrets=$(jq '[.Results[]?.Secrets[]?] | length' "$report")
+            echo "$app: CRITICAL con parche: $critical, secretos: $secrets"
+            if [ "$critical" -ne 0 ] || [ "$secrets" -ne 0 ]
             then
               status=1
             fi
@@ -797,7 +831,7 @@ jobs:
           mkdir -p reports/schemathesis
           docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp -w /tmp \
             -v "$PWD/specs/api:/specs:ro" -v "$PWD/reports/schemathesis:/reports" \
-            schemathesis/schemathesis:stable run /specs/openapi.yaml \
+            schemathesis/schemathesis:4.32.5 run /specs/openapi.yaml \
             --url http://localhost:3001 \
             --checks not_a_server_error,status_code_conformance,content_type_conformance,response_schema_conformance,response_headers_conformance \
             --phases examples,coverage,fuzzing \
@@ -906,14 +940,14 @@ jobs:
         if: ${{ !cancelled() && steps.stack.outcome == 'success' }}
         run: |
           docker run --rm --network host -v "$PWD/reports/zap:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            ghcr.io/zaproxy/zaproxy:2.17.0 zap-baseline.py \
             -t http://localhost:3000 -c rules.tsv \
             -J zap-frontend.json -r zap-frontend.html -I
       - name: ZAP API scan contra el backend con el OpenAPI (activo)
         if: ${{ !cancelled() && steps.stack.outcome == 'success' }}
         run: |
           docker run --rm --network host -v "$PWD/reports/zap:/zap/wrk:rw" \
-            ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py \
+            ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py \
             -t /zap/wrk/openapi.yaml -f openapi -c rules.tsv \
             -J zap-api.json -r zap-api.html -I
       - name: Compuerta (alertas High o reglas FAIL de tools/zap/rules.tsv)
@@ -979,22 +1013,29 @@ jobs:
         with:
           path: artifacts
           pattern: '{evidencia-*,contrato-backend,api-smoke,schemathesis,semgrep,trivy-*,zap,gitleaks,lighthouse,k6,spec-trace}'
+      # La evidencia es opcional: si falla el GIF o la publicación, el comentario sale igual
+      # (sin imágenes) con los endpoints y la seguridad
       - name: Convertir los videos de Playwright a GIF
+        continue-on-error: true
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ffmpeg > /dev/null
           node tools/evidence/videos-to-gif.mjs artifacts
       - name: Publicar imágenes en la rama evidence
+        id: publicar
         if: github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_ID: ${{ github.run_id }}
         run: tools/evidence/publish-branch.sh artifacts "pr-${PR_NUMBER}/${RUN_ID}"
       - name: Armar el comentario
+        if: ${{ !cancelled() }}
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-          EVIDENCE_BASE_URL: https://raw.githubusercontent.com/${{ github.repository }}/evidence/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}
+          # Vacío si la publicación falló o no corrió: el comentario sale sin imágenes
+          EVIDENCE_BASE_URL: ${{ steps.publicar.outcome == 'success' && format('https://raw.githubusercontent.com/{0}/evidence/pr-{1}/{2}', github.repository, github.event.pull_request.number, github.run_id) || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -1002,7 +1043,7 @@ jobs:
           node tools/evidence/build-comment.mjs --artifacts artifacts --out comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
       - name: Crear o actualizar el comentario del PR
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
@@ -1032,7 +1073,9 @@ jobs:
   # Las etapas omitidas por no tener cambios cuentan como éxito.
   resultado:
     name: Resultado del pipeline
+    # cambios va aquí: si la etapa 0 falla, el resto se salta y sin ella esto pasaría en verde
     needs:
+      - cambios
       - secretos
       - calidad-backend
       - calidad-frontend

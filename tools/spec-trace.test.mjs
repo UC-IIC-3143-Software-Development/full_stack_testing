@@ -2,7 +2,7 @@
 // en tools/__fixtures__/spec-trace porque backend y frontend evolucionan aparte.
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
@@ -175,6 +175,32 @@ describe('spec-trace: análisis completo', () => {
       [['NOPE-R9']],
     )
     assert.deepEqual(byId['FLOW-CAT-01'].missingSteps, ['ordeno por año'])
+  })
+
+  it('una regla BOOK, LOAN o RENEW con solo tests del contrato de mocks no queda cubierta', () => {
+    const root = mkdtempSync(join(tmpdir(), 'spec-trace-mocks-'))
+    const write = (path, text) => {
+      mkdirSync(dirname(join(root, path)), { recursive: true })
+      writeFileSync(join(root, path), text)
+    }
+    write(
+      'specs/features/SPEC-LIB-09.md',
+      '- **BOOK-R1 · ISBN.** Válido.\n- **RENEW-R1 · Renovar.** Una vez.\n- **UI-X-1** Botón.\n',
+    )
+    write(
+      'frontend/src/mocks/handlers.contract.test.ts',
+      "it('[BOOK-R1] createBook 400', () => {})\n" +
+        "it('[RENEW-R1] renewLoan 409', () => {})\n" +
+        "it('[UI-X-1] el mock responde', () => {})\n",
+    )
+    write('backend/test/loans.contract.spec.ts', "it('[RENEW-R1] responde 409', () => {})\n")
+    const report = analyze({ root })
+    const byId = Object.fromEntries(report.rules.map((rule) => [rule.id, rule]))
+    assert.equal(byId['BOOK-R1'].status, 'solo contrato mocks')
+    assert.equal(byId['RENEW-R1'].status, 'ok')
+    assert.equal(byId['UI-X-1'].status, 'ok')
+    assert.equal(report.summary.uncoveredRules, 1)
+    assert.equal(report.summary.ok, false)
   })
 
   it('la CLI termina con código 1 si falla y escribe los reportes JSON y markdown', () => {

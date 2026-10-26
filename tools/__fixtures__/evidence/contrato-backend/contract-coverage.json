@@ -48,6 +48,13 @@
       "path": "/api/loans/{loanId}/return",
       "statuses": [200, 400, 404, 409],
       "passed": true
+    },
+    {
+      "operationId": "renewLoan",
+      "method": "POST",
+      "path": "/api/loans/{loanId}/renew",
+      "statuses": [200, 400, 404, 409],
+      "passed": true
     }
   ]
 }

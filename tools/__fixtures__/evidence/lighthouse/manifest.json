@@ -4,6 +4,23 @@
     "isRepresentativeRun": true,
     "htmlPath": "lighthouse/localhost-_-2026_03_02_12_12_00.report.html",
     "jsonPath": "lighthouse/localhost-_-2026_03_02_12_12_00.report.json",
-    "summary": { "performance": 0.97, "accessibility": 1, "best-practices": 1, "seo": 0.91 }
+    "summary": {
+      "performance": 0.97,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 0.91
+    }
+  },
+  {
+    "url": "http://localhost:3000/prestamos",
+    "isRepresentativeRun": true,
+    "htmlPath": "lighthouse/localhost-_prestamos-2026_03_02_12_12_30.report.html",
+    "jsonPath": "lighthouse/localhost-_prestamos-2026_03_02_12_12_30.report.json",
+    "summary": {
+      "performance": 0.95,
+      "accessibility": 0.98,
+      "best-practices": 1,
+      "seo": 0.91
+    }
   }
 ]

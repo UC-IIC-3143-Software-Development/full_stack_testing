@@ -55,6 +55,11 @@ const LAYER_LABELS = {
 }
 
 const ID_PATTERN = '[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+'
+// Reglas de negocio que implementa el backend. El contrato de los mocks del frontend
+// (capa mock-contract) solo prueba que MSW imita a la API, no que el backend cumpla la
+// regla: para darlas por cubiertas hace falta al menos un test de otra capa.
+export const BACKEND_RULE = /^(BOOK|LOAN|RENEW)-/
+const MOCK_ONLY = 'solo contrato mocks'
 const IGNORED_DIRS = new Set([
   'node_modules',
   '.git',
@@ -686,7 +691,10 @@ export function analyze({ root, maxPerLayer = DEFAULT_MAX_PER_LAYER }) {
     for (const [layer, count] of exceeded) {
       overBudget.push({ id: rule.id, layer, count, max: maxPerLayer })
     }
+    const outsideMocks = rule.total - (rule.layers['mock-contract'] ?? 0)
     if (rule.required && rule.total === 0) rule.status = 'sin tests'
+    else if (rule.required && BACKEND_RULE.test(rule.id) && outsideMocks === 0)
+      rule.status = MOCK_ONLY
     else if (exceeded.length > 0) rule.status = 'excede presupuesto'
     else if (rule.kind === 'arch' && rule.total === 0) rule.status = 'test:arch'
     else if (rule.total === 0) rule.status = 'aviso: sin tests'
@@ -695,7 +703,7 @@ export function analyze({ root, maxPerLayer = DEFAULT_MAX_PER_LAYER }) {
 
   // Los IDs de documentos de spec solo se muestran si algún test los cita
   const ruleList = [...rules.values()].filter((rule) => rule.kind !== 'spec' || rule.total > 0)
-  const uncovered = ruleList.filter((rule) => rule.status === 'sin tests')
+  const uncovered = ruleList.filter((rule) => ['sin tests', MOCK_ONLY].includes(rule.status))
   const required = ruleList.filter((rule) => rule.required)
   const ok = uncovered.length === 0 && orphans.length === 0 && unknown.length === 0
   return {
@@ -727,6 +735,7 @@ export function analyze({ root, maxPerLayer = DEFAULT_MAX_PER_LAYER }) {
 const STATUS_ICON = {
   ok: '✅',
   'sin tests': '❌',
+  [MOCK_ONLY]: '❌',
   'excede presupuesto': '❌',
   'test:arch': '🏛️',
   'aviso: sin tests': '⚠️',
@@ -780,7 +789,7 @@ export function toMarkdown(report) {
   lines.push('')
   lines.push(
     '_🏛️ test:arch: reglas de arquitectura, las verifica dependency-cruiser. ⚠️ regla de una capa sin tests: se avisa, no bloquea. ' +
-      'Un test parametrizado cuenta una vez por fila._',
+      'Un test parametrizado cuenta una vez por fila. Una regla BOOK, LOAN o RENEW necesita al menos un test fuera del contrato de los mocks._',
   )
   return `${lines.join('\n')}\n`
 }

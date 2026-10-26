@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<testsuites errors="0" failures="0" skipped="0" tests="7" time="7.329127">
-  <testsuite name="schemathesis" hostname="runner" errors="0" failures="0" skipped="0" tests="7" time="7.329127">
+<testsuites errors="0" failures="0" skipped="0" tests="8" time="7.611402">
+  <testsuite name="schemathesis" hostname="runner" errors="0" failures="0" skipped="0" tests="8" time="7.611402">
     <testcase name="POST /api/books" time="4.950711" />
     <testcase name="GET /api/books" time="1.295914" />
     <testcase name="GET /api/health" time="0.032784" />
@@ -8,5 +8,6 @@
     <testcase name="GET /api/books/{bookId}" time="0.234762" />
     <testcase name="POST /api/loans" time="0.311974" />
     <testcase name="POST /api/loans/{loanId}/return" time="0.246933" />
+    <testcase name="POST /api/loans/{loanId}/renew" time="0.282275" />
   </testsuite>
 </testsuites>

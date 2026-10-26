@@ -7,6 +7,7 @@
 
 | Etapa | Qué verifica | Jobs | Estado |
 | --- | --- | --- | :---: |
+| **0 · Detectar cambios** | qué apps tocó el PR (paths-filter) | ✅ `cambios` | ✅ |
 | **1 · Pre-commit y secretos** | gitleaks | ✅ `secretos` | ✅ |
 | **2 · Calidad y especificación** | lint, tipos, arquitectura, Spectral, oasdiff, spec-trace, hadolint, actionlint, zizmor | ✅ `calidad-backend` ✅ `calidad-frontend` ✅ `contrato-openapi` ✅ `trazabilidad` ✅ `lint-infra` | ✅ |
 | **3 · SAST** | Semgrep y CodeQL | ✅ `semgrep` ✅ `codeql` | ✅ |
@@ -23,7 +24,7 @@ Cada escenario de `specs/flows/*.feature` es un test de Playwright (playwright-b
 
 #### Contra el mock server (MSW, sin backend)
 
-3 de 4 escenarios pasaron.
+4 de 5 escenarios pasaron.
 
 <details open>
 <summary>✅ <b>FLOW-CAT-01</b> · Buscar un libro por autor sin tildes</summary>
@@ -61,6 +62,15 @@ Cada escenario de `specs/flows/*.feature` es un test de Playwright (playwright-b
 
 </details>
 
+<details>
+<summary>⚠️ <b>FLOW-PRE-04</b> · Renovar un préstamo al día · pasó al reintentar</summary>
+
+<img src="https://raw.githubusercontent.com/UC-IIC-3143-Software-Development/full_stack_testing/evidence/pr-42/1234567890/evidencia-mock/videos/FLOW-PRE-04.gif" width="560" alt="Video de FLOW-PRE-04">
+
+<a href="https://raw.githubusercontent.com/UC-IIC-3143-Software-Development/full_stack_testing/evidence/pr-42/1234567890/evidencia-mock/screenshots/FLOW-PRE-04-1-renovado.png"><img src="https://raw.githubusercontent.com/UC-IIC-3143-Software-Development/full_stack_testing/evidence/pr-42/1234567890/evidencia-mock/screenshots/FLOW-PRE-04-1-renovado.png" width="180" alt="FLOW-PRE-04-1-renovado.png" title="FLOW-PRE-04-1-renovado.png"></a>
+
+</details>
+
 #### Contra el stack real (docker compose con PostgreSQL)
 
 2 de 2 escenarios pasaron.
@@ -87,19 +97,20 @@ Cada escenario de `specs/flows/*.feature` es un test de Playwright (playwright-b
 
 | Operación | Método y ruta | Contrato (supertest + Testcontainers) | Smoke contra el stack real |
 | --- | --- | --- | --- |
-| `getHealth` | `GET /api/health` | ✅ 200 | ✅ 200 (máx. 6 ms) |
-| `listBooks` | `GET /api/books` | ✅ 200 · 400 | ✅ 200 · 200 (máx. 12 ms) |
-| `createBook` | `POST /api/books` | ✅ 201 · 400 · 409 | ✅ 201 · 409 · 400 (máx. 18 ms) |
-| `getBook` | `GET /api/books/{bookId}` | ✅ 200 · 400 · 404 | ✅ 200 · 404 · 400 (máx. 7 ms) |
-| `listLoans` | `GET /api/loans` | ✅ 200 · 400 | ✅ 200 · 400 (máx. 11 ms) |
-| `createLoan` | `POST /api/loans` | ✅ 201 · 400 · 404 · 409 | ✅ 201 · 404 (máx. 21 ms) |
-| `returnLoan` | `POST /api/loans/{loanId}/return` | ✅ 200 · 400 · 404 · 409 | ✅ 200 · 409 · 404 · 400 (máx. 15 ms) |
+| `getHealth` | `GET /api/health` | ✅ 200 | ✅ 200 (máx. 3 ms) |
+| `listBooks` | `GET /api/books` | ✅ 200 · 400 | ✅ 200 · 200 (máx. 1 ms) |
+| `createBook` | `POST /api/books` | ✅ 201 · 400 · 409 | ✅ 201 · 409 · 400 (máx. 4 ms) |
+| `getBook` | `GET /api/books/{bookId}` | ✅ 200 · 400 · 404 | ✅ 200 · 404 · 400 (máx. 1 ms) |
+| `listLoans` | `GET /api/loans` | ✅ 200 · 400 | ✅ 200 · 400 (máx. 0 ms) |
+| `createLoan` | `POST /api/loans` | ✅ 201 · 400 · 404 · 409 | ✅ 201 · 404 (máx. 1 ms) |
+| `returnLoan` | `POST /api/loans/{loanId}/return` | ✅ 200 · 400 · 404 · 409 | ✅ 200 · 409 · 404 · 400 (máx. 0 ms) |
+| `renewLoan` | `POST /api/loans/{loanId}/renew` | ✅ 200 · 400 · 404 · 409 | ✅ 200 · 409 (máx. 1 ms) |
 
-Smoke: 17 de 17 verificaciones OK en 191 ms.
+Smoke: 19 de 19 verificaciones OK en 65 ms.
 
 #### 🧬 Schemathesis (property based testing desde el OpenAPI)
 
-✅ 7 de 7 operaciones sin violaciones del contrato.
+✅ 8 de 8 operaciones sin violaciones del contrato.
 
 ### 🔐 Seguridad y calidad
 
@@ -107,14 +118,15 @@ Smoke: 17 de 17 verificaciones OK en 191 ms.
 | --- | --- | --- |
 | gitleaks | Secretos | ✅ 0 hallazgos |
 | Semgrep | SAST | ⚠️ ERROR 0 · WARNING 1 · INFO 0 |
-| CodeQL | SAST | ✅ ok (detalle en la pestaña Security) |
+| CodeQL | SAST | ℹ️ informativo (ver pestaña Security) |
 | Dependency review y npm audit | SCA | ✅ ok |
 | Trivy fs | SCA, secretos e IaC | ✅ CRITICAL 0 · HIGH 0 · MEDIUM 1 · LOW 0 |
 | Trivy imagen backend | Contenedor | ⚠️ CRITICAL 0 · HIGH 1 · MEDIUM 0 · LOW 1 |
 | Trivy imagen frontend | Contenedor | ✅ CRITICAL 0 · HIGH 0 · MEDIUM 0 · LOW 0 |
 | OWASP ZAP baseline (frontend) | DAST | ⚠️ High 0 · Medium 1 · Low 0 · Informational 1 |
 | OWASP ZAP API scan (backend) | DAST | ❌ High 1 · Medium 0 · Low 0 · Informational 0 |
-| Lighthouse CI | Calidad web | ✅ Rendimiento 97 · Accesibilidad 100 · Buenas prácticas 100 · SEO 91 |
+| Lighthouse CI `/` | Calidad web | ✅ Rendimiento 97 · Accesibilidad 100 · Buenas prácticas 100 · SEO 91 |
+| Lighthouse CI `/prestamos` | Calidad web | ✅ Rendimiento 95 · Accesibilidad 98 · Buenas prácticas 100 · SEO 91 |
 | k6 | Rendimiento API | ✅ p95 21.7 ms · errores 0.00 % · 1840 solicitudes |
 | spec-trace | Trazabilidad SDD | ✅ 27 de 27 reglas con tests · 0 huérfanos · 0 sobre presupuesto |
 

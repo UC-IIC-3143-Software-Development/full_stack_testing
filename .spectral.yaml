@@ -7,8 +7,7 @@
 # cada una explicada con el defecto que evita.
 #
 # El build falla solo con errores (--fail-severity error). Las advertencias se ven en
-# el log: hoy spectral:oas avisa que createBook, getBook, createLoan y returnLoan no
-# tienen description. Es una mejora pendiente del contrato, no un error.
+# el log. Hoy el contrato no tiene errores ni advertencias.
 extends:
   - spectral:oas
 

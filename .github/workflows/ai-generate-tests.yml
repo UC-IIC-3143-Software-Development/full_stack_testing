@@ -30,6 +30,7 @@ on:
           - listLoans
           - createLoan
           - returnLoan
+          - renewLoan
 
 permissions: {}
 

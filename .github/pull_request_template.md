@@ -28,7 +28,7 @@
 ## Seguridad (P5)
 
 - [ ] No agregué secretos ni credenciales (ni siquiera de prueba fuera de `tools/__fixtures__`)
-- [ ] Toda dependencia nueva es necesaria y la revisé en el comentario de dependency review
+- [ ] Toda dependencia nueva es necesaria y la revisé en el resumen del job 4 · Dependencias (dependency review comenta en el PR solo si falla)
 
 ## Evidencia
 
