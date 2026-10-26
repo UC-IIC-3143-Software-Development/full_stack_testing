@@ -1,0 +1,427 @@
+openapi: 3.1.0
+info:
+  title: Biblioteca UC API
+  version: 1.0.0
+  summary: Catálogo de libros y préstamos de la Biblioteca UC.
+  description: |
+    Contrato de la API (spec first). Es la fuente de verdad del proyecto:
+    el backend lo implementa, el frontend genera sus tipos desde aquí y los
+    mocks del frontend (MSW) se validan contra este archivo.
+
+    Reglas de negocio: `specs/features/SPEC-LIB-01-catalogo.md` y
+    `specs/features/SPEC-LIB-02-prestamos.md`.
+  contact:
+    name: IIC3143 Desarrollo de Software
+    url: https://github.com/UC-IIC-3143-Software-Development/full_stack_testing
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:3001
+    description: Desarrollo local
+tags:
+  - name: health
+    description: Estado del servicio
+  - name: books
+    description: Catálogo de libros (SPEC-LIB-01)
+  - name: loans
+    description: Préstamos (SPEC-LIB-02)
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      summary: Estado del servicio
+      description: Responde 200 si la API y la base de datos están disponibles.
+      responses:
+        '200':
+          description: Servicio disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: ok
+  /api/books:
+    get:
+      operationId: listBooks
+      tags: [books]
+      summary: Lista y busca libros
+      description: |
+        Devuelve los libros ordenados por título. Si se envía `q`, filtra por
+        título o autor sin distinguir mayúsculas ni tildes (BOOK-R5).
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Texto a buscar en el título o el autor.
+          schema:
+            type: string
+            maxLength: 100
+          example: garcía
+      responses:
+        '200':
+          description: Lista de libros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+    post:
+      operationId: createBook
+      tags: [books]
+      summary: Agrega un libro al catálogo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewBook'
+            example:
+              isbn: 978-84-376-0494-7
+              title: Rayuela
+              author: Julio Cortázar
+              totalCopies: 2
+      responses:
+        '201':
+          description: Libro creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Ya existe un libro con ese ISBN (BOOK-R2)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                code: ISBN_ALREADY_EXISTS
+                detail: Ya existe un libro con el ISBN 9788437604947
+  /api/books/{bookId}:
+    get:
+      operationId: getBook
+      tags: [books]
+      summary: Obtiene un libro
+      parameters:
+        - $ref: '#/components/parameters/BookId'
+      responses:
+        '200':
+          description: Libro encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/loans:
+    get:
+      operationId: listLoans
+      tags: [loans]
+      summary: Lista los préstamos de una persona
+      description: Devuelve los préstamos del correo indicado, del más reciente al más antiguo.
+      parameters:
+        - name: borrowerEmail
+          in: query
+          required: true
+          description: Correo de la persona (se compara sin distinguir mayúsculas).
+          schema:
+            type: string
+            format: email
+            maxLength: 254
+          example: ana@uc.cl
+      responses:
+        '200':
+          description: Lista de préstamos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Loan'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+    post:
+      operationId: createLoan
+      tags: [loans]
+      summary: Registra un préstamo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewLoan'
+            example:
+              bookId: 3f1c2a9e-8b7d-4c6e-9f10-2a3b4c5d6e7f
+              borrowerEmail: ana@uc.cl
+      responses:
+        '201':
+          description: Préstamo creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loan'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            No se puede prestar: sin copias disponibles (LOAN-R1), límite de
+            préstamos activos (LOAN-R2) o préstamo activo del mismo libro (LOAN-R4).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                code: LOAN_LIMIT_REACHED
+                detail: ana@uc.cl ya tiene 3 préstamos activos
+  /api/loans/{loanId}/return:
+    post:
+      operationId: returnLoan
+      tags: [loans]
+      summary: Registra la devolución de un préstamo
+      parameters:
+        - $ref: '#/components/parameters/LoanId'
+      responses:
+        '200':
+          description: Préstamo devuelto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loan'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: El préstamo ya fue devuelto (LOAN-R5)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                code: ALREADY_RETURNED
+                detail: El préstamo ya fue devuelto
+components:
+  parameters:
+    BookId:
+      name: bookId
+      in: path
+      required: true
+      description: Identificador del libro.
+      schema:
+        type: string
+        format: uuid
+    LoanId:
+      name: loanId
+      in: path
+      required: true
+      description: Identificador del préstamo.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    ValidationError:
+      description: La solicitud no cumple el contrato
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            code: VALIDATION_ERROR
+            detail: La solicitud tiene campos inválidos
+            errors:
+              - field: isbn
+                message: El ISBN no es válido
+    NotFound:
+      description: El recurso no existe
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            code: BOOK_NOT_FOUND
+            detail: No existe el libro solicitado
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    Book:
+      type: object
+      additionalProperties: false
+      required: [id, isbn, title, author, totalCopies, availableCopies, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        isbn:
+          type: string
+          description: ISBN-13 normalizado, solo dígitos (BOOK-R1).
+          pattern: '^97[89][0-9]{10}$'
+          example: '9788437604947'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Rayuela
+        author:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Julio Cortázar
+        totalCopies:
+          type: integer
+          minimum: 1
+          maximum: 50
+          example: 2
+        availableCopies:
+          type: integer
+          minimum: 0
+          maximum: 50
+          example: 2
+        createdAt:
+          type: string
+          format: date-time
+    NewBook:
+      type: object
+      additionalProperties: false
+      required: [isbn, title, author, totalCopies]
+      properties:
+        isbn:
+          type: string
+          description: ISBN-13. Acepta guiones y espacios, que se eliminan al normalizar.
+          minLength: 13
+          maxLength: 17
+          example: 978-84-376-0494-7
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        author:
+          type: string
+          minLength: 1
+          maxLength: 120
+        totalCopies:
+          type: integer
+          minimum: 1
+          maximum: 50
+    Loan:
+      type: object
+      additionalProperties: false
+      required: [id, bookId, bookTitle, borrowerEmail, loanedAt, dueAt, returnedAt, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        bookId:
+          type: string
+          format: uuid
+        bookTitle:
+          type: string
+          example: Cien años de soledad
+        borrowerEmail:
+          type: string
+          format: email
+          description: Correo normalizado en minúsculas.
+          example: ana@uc.cl
+        loanedAt:
+          type: string
+          format: date-time
+        dueAt:
+          type: string
+          format: date-time
+          description: loanedAt más 14 días (LOAN-R3).
+        returnedAt:
+          type: [string, 'null']
+          format: date-time
+        status:
+          $ref: '#/components/schemas/LoanStatus'
+    LoanStatus:
+      type: string
+      description: |
+        ACTIVE si no se ha devuelto y no está vencido, OVERDUE si no se ha devuelto
+        y la fecha actual es posterior a dueAt (LOAN-R6), RETURNED si se devolvió.
+      enum: [ACTIVE, OVERDUE, RETURNED]
+    NewLoan:
+      type: object
+      additionalProperties: false
+      required: [bookId, borrowerEmail]
+      properties:
+        bookId:
+          type: string
+          format: uuid
+        borrowerEmail:
+          type: string
+          format: email
+          maxLength: 254
+    Problem:
+      type: object
+      description: Error en formato RFC 9457 (Problem Details).
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          example: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - BOOK_NOT_FOUND
+        - LOAN_NOT_FOUND
+        - ISBN_ALREADY_EXISTS
+        - NO_COPIES_AVAILABLE
+        - LOAN_LIMIT_REACHED
+        - DUPLICATE_LOAN
+        - ALREADY_RETURNED
