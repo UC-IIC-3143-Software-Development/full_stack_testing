@@ -1,4 +1,4 @@
-// Fixtures de los flujos BDD (playwright-bdd): reloj fijo y capturas de evidencia para el PR.
+// Fixtures de los flujos BDD (playwright-bdd): fecha fija de prueba y capturas de evidencia para el PR.
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { createBdd, test as base } from 'playwright-bdd'

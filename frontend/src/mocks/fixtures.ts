@@ -1,7 +1,7 @@
 // Datos de prueba de specs/flows/README.md. Los usan el mock server (MSW) y los tests.
 import type { Book, Loan } from '@/shared/api/types'
 
-/** Reloj fijo de las pruebas (specs/flows/README.md). */
+/** Fecha fija de las pruebas (specs/flows/README.md). */
 export const FIXED_NOW = '2026-03-02T12:00:00.000Z'
 
 export const BOOK_IDS = {

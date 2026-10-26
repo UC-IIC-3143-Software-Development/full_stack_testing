@@ -104,7 +104,7 @@ Cada escenario graba un video (960x600) y una captura después de cada paso en
 `evidence/screenshots/<FLOW-ID>-<n>-<paso>.png`. Al final, `scripts/collect-evidence.mjs` escribe
 `evidence/manifest.json` (formato de `specs/architecture.md`) y el pipeline lo publica en el PR.
 
-Todos los tests de navegador usan `locale` es-CL, zona `America/Santiago` y el reloj fijo
+Todos los tests de navegador usan `locale` es-CL, zona `America/Santiago` y la fecha fija de prueba
 `2026-03-02T12:00:00Z` (`tests/support/clock.ts`). Por eso la fecha de devolución siempre es `16-03-2026`
 y, después de renovar (FLOW-PRE-04), `23-03-2026`.
 

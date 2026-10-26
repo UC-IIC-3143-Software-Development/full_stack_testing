@@ -22,7 +22,8 @@
 - [ ] Una partición, un test: sin variantes del mismo caso y como máximo 6 por regla y capa
 - [ ] Sin mocks (`jest.fn`, `vi.fn`) salvo justificación escrita en el test
 - [ ] Sin aserciones débiles (`toBeDefined`, `toBeTruthy` sobre objetos) ni esperas fijas
-- [ ] Si una IA propuso tests, revisé y aprobé la lista de casos antes de aceptarlos
+- [ ] Calidad antes que cantidad: cada prueba nueva cubre un flujo real o una regla de la spec
+  (si la escribió una IA, la revisé con ese criterio)
 - [ ] `npm run spec:trace` en la raíz queda en verde
 
 ## Seguridad (P5)

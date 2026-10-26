@@ -8,7 +8,7 @@ import type { RenewalErrorCode } from '@/shared/api/types'
 import { LoanList } from './LoanList'
 
 // carla@uc.cl tiene en el mock server un préstamo de cada estado (src/mocks/fixtures.ts),
-// evaluado con el reloj fijo 2026-03-02T12:00:00Z.
+// evaluado con la fecha fija de prueba 2026-03-02T12:00:00Z.
 function loanItem(title: string) {
   return screen
     .getAllByRole('listitem')

@@ -12,8 +12,8 @@ rules:
     severity: ERROR
     message: >-
       No leas la hora del sistema en domain ni application. Recibe la hora desde el
-      puerto Clock (SPEC-LIB-02, LOAN-R6): así los tests usan un reloj fijo y el
-      estado OVERDUE es determinista.
+      puerto Clock (SPEC-LIB-02, LOAN-R6): así los tests pueden fijar la fecha y el
+      estado OVERDUE da siempre el mismo resultado.
     metadata:
       spec: specs/features/SPEC-LIB-02-prestamos.md
       rule: LOAN-R6

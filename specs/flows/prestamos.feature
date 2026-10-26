@@ -1,6 +1,6 @@
 # language: es
 # Flujos de usuario de SPEC-LIB-02 y SPEC-LIB-03. playwright-bdd genera los tests de Playwright desde aquí.
-# Reloj fijo de las pruebas: 2026-03-02T12:00:00Z (zona America/Santiago).
+# Fecha fija de las pruebas: 2026-03-02T12:00:00Z (zona America/Santiago).
 @SPEC-LIB-02
 Característica: Préstamos
   Como estudiante de la UC

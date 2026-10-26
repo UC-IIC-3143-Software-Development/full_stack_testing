@@ -20,5 +20,5 @@ Clases, funciones o archivos y su propósito.
 | ----- | ------------------- | ---- |
 
 ## Cómo se prueba esta capa
-Tipo de test, dobles permitidos (fakes en memoria, reloj fijo) y lo que NO se prueba aquí
+Tipo de test, dobles permitidos (fakes en memoria, fecha fija de prueba) y lo que NO se prueba aquí
 porque pertenece a otra capa.

@@ -237,7 +237,7 @@ npm run spec:trace                       # trazabilidad spec a tests
 npm run test:tools                       # tests de tools/
 git config core.hooksPath .githooks      # activa el hook pre-commit
 
-# Stack completo con reloj fijo, en puertos que no choquen con otros servicios
+# Stack completo con fecha fija de prueba, en puertos que no choquen con otros servicios
 CLOCK_FIXED_NOW=2026-03-02T12:00:00Z BACKEND_PORT=3101 FRONTEND_PORT=3100 DB_PORT=55432 \
   docker compose up -d --build --wait
 BASE_URL=http://localhost:3101 npm run seed:stack

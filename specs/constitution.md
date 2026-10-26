@@ -42,16 +42,19 @@ Basada en *Full Stack Testing* (G. Mohan, 2.ª ed., O'Reilly 2026), cap. 3.
    el defecto. Las validaciones de campos se prueban en unit, no en API ni en UI (p. 71 y p. 102).
 2. **Una partición, un test.** Una regla se cubre con sus particiones de equivalencia y
    valores límite, no con variantes del mismo caso. Presupuesto máximo: 6 tests por regla y capa.
-3. **Sin mocks por defecto.** Los tests unitarios usan objetos reales o *fakes* en memoria
-   (repositorios en memoria, reloj fijo). Un mock con `jest.fn()` solo se acepta para
-   verificar una interacción con un sistema externo que no se puede simular de otra forma.
+3. **Sin mocks por defecto.** Los tests unitarios usan objetos reales o *fakes*: versiones
+   simples que funcionan de verdad, como un repositorio que guarda los datos en memoria o un reloj
+   que siempre entrega la fecha que define el test (así el resultado no depende de la hora real).
+   Un mock con `jest.fn()` solo se acepta para verificar una interacción con un sistema externo
+   que no se puede simular de otra forma.
 4. **Oráculos explícitos.** El valor esperado se escribe literal. Nunca se recalcula la
    lógica de producción dentro del test.
 5. **Independencia.** Cada test prepara su propio estado y no depende del orden de ejecución.
 6. **Prohibido:** aserciones débiles (`toBeDefined`, `toBeTruthy` sobre objetos), esperas fijas
    (`waitForTimeout`, `sleep`), tests duplicados entre capas (antipatrón *cupcake*).
-7. **Un agente de IA no genera tests en lote.** Primero propone la lista de casos con su
-   capa y el ID de regla que cubre, un humano la aprueba y recién ahí se escriben, uno a la vez.
+7. **Calidad antes que cantidad.** El avance no se mide por el número de tests. Cada test nuevo
+   cubre un flujo real de las personas usuarias o una regla de la spec, y debe poder fallar ante un
+   error real. Vale igual para tests escritos por una persona o por un agente de IA.
 
 ## P5 · Seguridad desde el inicio (DevSecOps)
 

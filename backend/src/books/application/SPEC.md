@@ -4,7 +4,7 @@
 | ------------ | -------------------------------------------------- |
 | Capa         | application (ver `specs/architecture.md`)          |
 | Implementa   | BOOK-R2, BOOK-R4, BOOK-R5 y BOOK-R6 de SPEC-LIB-01 |
-| Tipo de test | unit con fakes en memoria y reloj fijo             |
+| Tipo de test | unit con fakes en memoria y fecha fija de prueba   |
 
 ## Responsabilidad
 

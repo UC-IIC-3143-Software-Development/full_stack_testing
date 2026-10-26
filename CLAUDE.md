@@ -9,9 +9,15 @@ Este repo se construye con Spec Driven Development. Antes de cambiar código:
    frontend con `npm run api:generate` en `frontend/`.
 
 ## Tests
-- Cada test nombra el ID de la regla o flujo que verifica en su título: `[LOAN-R2] ...`.
-- Capa más baja posible. Sin mocks salvo justificación (usa fakes en memoria y reloj fijo).
-- No generes tests en lote. Propón la lista de casos (regla, capa, partición) y espera aprobación.
+- Cada test nombra en su título el ID de la regla o del flujo que verifica: `[LOAN-R2] ...`.
+- Escribe cada test en la capa más baja que pueda detectar el error. Por ejemplo, la validación
+  de un campo se prueba en un test unitario, no en un test de la interfaz.
+- Evita los mocks. Usa objetos reales o versiones simples en memoria (por ejemplo, un repositorio
+  que guarda los datos en una lista). Si el resultado depende de la fecha u hora, el test define
+  la fecha que usa el código en vez de leer la hora del computador, así siempre da el mismo resultado.
+- **Calidad antes que cantidad.** No priorices el número de pruebas. Prioriza pruebas que cubran
+  flujos reales de las personas usuarias y las reglas de la spec. Si una prueba no fallaría ante
+  ningún error real, no aporta y no se agrega.
 - Antes de terminar: `node tools/spec-trace.mjs` y los scripts `lint`, `typecheck`, `test:*` de la app tocada.
 
 ## Estilo

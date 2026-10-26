@@ -21,7 +21,7 @@ docker run -d --name biblioteca-pg -e POSTGRES_USER=biblioteca -e POSTGRES_PASSW
 PGPORT=$(docker port biblioteca-pg 5432 | cut -d: -f2)
 
 export DATABASE_URL="postgres://biblioteca:biblioteca@127.0.0.1:$PGPORT/biblioteca"
-export CLOCK_FIXED_NOW=2026-03-02T12:00:00Z   # opcional: reloj fijo, como en los tests
+export CLOCK_FIXED_NOW=2026-03-02T12:00:00Z   # opcional: fecha fija de prueba, como en los tests
 npm run build && npm run start:prod           # las migraciones corren al iniciar
 npm run seed                                  # carga los libros de specs/flows/README.md
 
