@@ -27,7 +27,9 @@ export class ReturnLoan {
         throw new AlreadyReturnedError(loanId) // otra solicitud lo devolvió primero
       }
       await this.books.releaseCopy(loan.bookId)
-      return returnedLoan
+      // Se responde lo guardado, no lo leído al inicio: una renovación concurrente pudo
+      // confirmar dueAt y renewalCount nuevos antes del UPDATE condicional.
+      return (await this.loans.findById(loanId)) ?? returnedLoan
     })
 
     return toLoanDetails(returned, now)

@@ -1,5 +1,7 @@
 import { createApplication } from '../../../test/support/application-harness'
-import { aBook, CATALOG } from '../../../test/support/test-data'
+import { rejectionOf } from '../../../test/support/errors'
+import { aBook, CATALOG, nextUuid } from '../../../test/support/test-data'
+import { LoanNotFoundError } from '../domain/loan.errors'
 
 describe('RenewLoan', () => {
   it('[RENEW-R1] renueva con la hora del reloj y guarda la nueva fecha de devolución', async () => {
@@ -22,5 +24,14 @@ describe('RenewLoan', () => {
       '2026-03-23T12:00:00.000Z',
       1,
     ])
+  })
+
+  it('[RENEW-R4] un préstamo inexistente responde LOAN_NOT_FOUND', async () => {
+    const app = createApplication()
+
+    const error = await rejectionOf(app.renewLoan.execute(nextUuid()))
+
+    expect(error).toBeInstanceOf(LoanNotFoundError)
+    expect(error).toMatchObject({ code: 'LOAN_NOT_FOUND' })
   })
 })

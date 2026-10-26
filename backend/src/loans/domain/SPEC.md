@@ -39,8 +39,10 @@ Representar un préstamo, su fecha de vencimiento, su estado, su renovación y l
 | RENEW-R2 | `Loan.renew`: con `renewalCount >= MAX_RENEWALS` (1) lanza `RenewalLimitReachedError`            | `loan.spec.ts`                            |
 | RENEW-R3 | `Loan.renew`: devuelto lanza `AlreadyReturnedError` y vencido (`now > dueAt`) `LoanOverdueError` | `loan.spec.ts` (límite exacto de `dueAt`) |
 
-Orden de `Loan.renew` si se incumplen varias reglas: devuelto, ya renovado y vencido. SPEC-LIB-03
-no fija este orden: se eligió primero el estado del préstamo, después lo que no depende del reloj.
+Orden de `Loan.renew` si se incumplen varias reglas: devuelto, ya renovado y vencido, con los
+textos `detail` que fija SPEC-LIB-03 ("Orden de los errores al renovar"). Lo verifican dos tests de
+`loan.spec.ts`: renovado y vencido responde `RENEWAL_LIMIT_REACHED`, y devuelto y ya renovado
+responde `ALREADY_RETURNED`.
 
 ## Cómo se prueba esta capa
 

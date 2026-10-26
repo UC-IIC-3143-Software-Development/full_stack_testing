@@ -1,10 +1,10 @@
 # SPEC · loans · capa application
 
-| Campo        | Valor                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------- |
-| Capa         | application (ver `specs/architecture.md`)                                                         |
-| Implementa   | LOAN-R1, LOAN-R2, LOAN-R4 a LOAN-R7 de SPEC-LIB-02 y RENEW-R1, RENEW-R2 y RENEW-R4 de SPEC-LIB-03 |
-| Tipo de test | unit con fakes en memoria y reloj fijo                                                            |
+| Campo        | Valor                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Capa         | application (ver `specs/architecture.md`)                                               |
+| Implementa   | LOAN-R1, LOAN-R2, LOAN-R4 a LOAN-R7 de SPEC-LIB-02 y RENEW-R1 a RENEW-R4 de SPEC-LIB-03 |
+| Tipo de test | unit con fakes en memoria y reloj fijo                                                  |
 
 ## Responsabilidad
 
@@ -31,17 +31,18 @@ Orden de validación de `CreateLoan`: correo (400), libro (404), LOAN-R4, LOAN-R
 
 ## Reglas que implementa
 
-| Regla    | Dónde se implementa                                                                                                                            | Test                                                                      |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| LOAN-R1  | `CreateLoan`: `book.lendCopy()` y luego `takeCopy` atómico, todo en `UnitOfWork`                                                               | `create-loan.spec.ts` · `loan.repository.int-spec.ts` (concurrencia real) |
-| LOAN-R2  | `CreateLoan`: `lockBorrower` y `assertCanBorrow`                                                                                               | `create-loan.spec.ts` · `loan.repository.int-spec.ts` (concurrencia real) |
-| LOAN-R4  | `CreateLoan` con `assertCanBorrow`                                                                                                             | `create-loan.spec.ts`                                                     |
-| LOAN-R5  | `ReturnLoan`: `markReturned` condicional y `releaseCopy`                                                                                       | `return-loan.spec.ts`                                                     |
-| LOAN-R6  | `ListLoans` calcula el estado con `Clock.now()`                                                                                                | `list-loans.spec.ts`                                                      |
-| LOAN-R7  | `CreateLoan` lanza `BookNotFoundError`. `Email.create` normaliza el correo                                                                     | `create-loan.spec.ts`                                                     |
-| RENEW-R1 | `RenewLoan`: `loan.renew(clock.now())` y `markRenewed`, todo en `UnitOfWork`                                                                   | `renew-loan.spec.ts`                                                      |
-| RENEW-R2 | `RenewLoan`: si `markRenewed` devuelve false, vuelve a leer y responde `RenewalLimitReachedError` (o `AlreadyReturnedError` si lo devolvieron) | `loan.repository.int-spec.ts` (concurrencia real)                         |
-| RENEW-R4 | `RenewLoan` lanza `LoanNotFoundError`                                                                                                          | contrato HTTP (404), según SPEC-LIB-03                                    |
+| Regla    | Dónde se implementa                                                                                                                                                   | Test                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| LOAN-R1  | `CreateLoan`: `book.lendCopy()` y luego `takeCopy` atómico, todo en `UnitOfWork`                                                                                      | `create-loan.spec.ts` · `loan.repository.int-spec.ts` (concurrencia real)   |
+| LOAN-R2  | `CreateLoan`: `lockBorrower` y `assertCanBorrow`                                                                                                                      | `create-loan.spec.ts` · `loan.repository.int-spec.ts` (concurrencia real)   |
+| LOAN-R4  | `CreateLoan` con `assertCanBorrow`                                                                                                                                    | `create-loan.spec.ts`                                                       |
+| LOAN-R5  | `ReturnLoan`: `markReturned` condicional y `releaseCopy`. Responde el préstamo releído después del UPDATE, por si una renovación concurrente cambió `dueAt`           | `return-loan.spec.ts` · `loan.repository.int-spec.ts` (carrera con renovar) |
+| LOAN-R6  | `ListLoans` calcula el estado con `Clock.now()`                                                                                                                       | `list-loans.spec.ts`                                                        |
+| LOAN-R7  | `CreateLoan` lanza `BookNotFoundError`. `Email.create` normaliza el correo                                                                                            | `create-loan.spec.ts`                                                       |
+| RENEW-R1 | `RenewLoan`: `loan.renew(clock.now())` y `markRenewed`, todo en `UnitOfWork`                                                                                          | `renew-loan.spec.ts`                                                        |
+| RENEW-R2 | `RenewLoan`: si `markRenewed` devuelve false porque otra solicitud lo renovó primero, responde `RenewalLimitReachedError`                                             | `loan.repository.int-spec.ts` (concurrencia real)                           |
+| RENEW-R3 | `RenewLoan`: si `markRenewed` devuelve false, vuelve a leer y, si lo devolvieron primero, responde `AlreadyReturnedError`. El orden de los errores lo fija el dominio | `loan.repository.int-spec.ts` (carrera con devolver)                        |
+| RENEW-R4 | `RenewLoan` lanza `LoanNotFoundError`                                                                                                                                 | `renew-loan.spec.ts` · contrato HTTP (404)                                  |
 
 ## Cómo se prueba esta capa
 

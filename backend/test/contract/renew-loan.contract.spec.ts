@@ -64,7 +64,10 @@ describe('Contrato HTTP: renovar préstamo (SPEC-LIB-03)', () => {
 
     await expectToMatchContract(response, 'renewLoan')
     expect(response.status).toBe(409)
-    expect(response.body).toMatchObject({ code: 'LOAN_OVERDUE' })
+    expect(response.body).toMatchObject({
+      code: 'LOAN_OVERDUE',
+      detail: 'El préstamo está vencido y no se puede renovar',
+    })
   })
 
   it('[RENEW-R4] renovar un préstamo inexistente responde 404 y un id que no es UUID 400', async () => {

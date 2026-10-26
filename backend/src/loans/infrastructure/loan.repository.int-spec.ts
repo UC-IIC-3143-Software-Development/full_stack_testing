@@ -15,7 +15,12 @@ import { loanRepositoryContract } from '../../../test/repository-contract/loan-r
 import { aBook, CATALOG, FIXED_NOW } from '../../../test/support/test-data'
 import { CreateLoan } from '../application/create-loan'
 import { RenewLoan } from '../application/renew-loan'
-import { LoanLimitReachedError, RenewalLimitReachedError } from '../domain/loan.errors'
+import { ReturnLoan } from '../application/return-loan'
+import {
+  AlreadyReturnedError,
+  LoanLimitReachedError,
+  RenewalLimitReachedError,
+} from '../domain/loan.errors'
 import { TypeOrmLoanRepository } from './typeorm-loan.repository'
 
 describe('Préstamos en PostgreSQL (Testcontainers)', () => {
@@ -23,6 +28,7 @@ describe('Préstamos en PostgreSQL (Testcontainers)', () => {
   let books: TypeOrmBookRepository
   let createLoan: CreateLoan
   let renewLoan: RenewLoan
+  let returnLoan: ReturnLoan
 
   beforeAll(async () => {
     dataSource = await openMigratedDataSource()
@@ -35,6 +41,7 @@ describe('Préstamos en PostgreSQL (Testcontainers)', () => {
     const loans = new TypeOrmLoanRepository(unitOfWork)
     createLoan = new CreateLoan(books, loans, unitOfWork, new FixedClock(FIXED_NOW))
     renewLoan = new RenewLoan(loans, unitOfWork, new FixedClock(FIXED_NOW))
+    returnLoan = new ReturnLoan(books, loans, unitOfWork, new FixedClock(FIXED_NOW))
   })
 
   afterAll(async () => {
@@ -145,5 +152,47 @@ describe('Préstamos en PostgreSQL (Testcontainers)', () => {
     expect(
       await dataSource.query('SELECT due_at, renewal_count FROM loans WHERE id = $1', [loan.id]),
     ).toEqual([{ due_at: new Date('2026-03-23T12:00:00.000Z'), renewal_count: 1 }])
+  })
+
+  it('[RENEW-R3] si la devolución gana la carrera, renovar responde ALREADY_RETURNED', async () => {
+    const book = aBook(CATALOG.ficciones, 2)
+    await books.add(book)
+    const loan = await createLoan.execute({ bookId: book.id, borrowerEmail: 'ana@uc.cl' })
+
+    // Las dos leen el préstamo sin devolver. La devolución llega primero a la barrera.
+    const barrier = await holdLoanRows(dataSource, [loan.id])
+    const returning = returnLoan.execute(loan.id)
+    await waitForBlockedSessions(dataSource, 1)
+    const renewing = renewLoan.execute(loan.id)
+    await waitForBlockedSessions(dataSource, 2)
+    await barrier.release()
+
+    await returning
+    expect(await rejectionOf(renewing)).toBeInstanceOf(AlreadyReturnedError)
+    expect(
+      await dataSource.query('SELECT due_at, renewal_count FROM loans WHERE id = $1', [loan.id]),
+    ).toEqual([{ due_at: new Date('2026-03-16T12:00:00.000Z'), renewal_count: 0 }])
+  })
+
+  it('[LOAN-R5] si la renovación gana la carrera, devolver responde el préstamo ya renovado', async () => {
+    const book = aBook(CATALOG.ficciones, 2)
+    await books.add(book)
+    const loan = await createLoan.execute({ bookId: book.id, borrowerEmail: 'ana@uc.cl' })
+
+    // Las dos leen renewalCount = 0. La renovación llega primero a la barrera.
+    const barrier = await holdLoanRows(dataSource, [loan.id])
+    const renewing = renewLoan.execute(loan.id)
+    await waitForBlockedSessions(dataSource, 1)
+    const returning = returnLoan.execute(loan.id)
+    await waitForBlockedSessions(dataSource, 2)
+    await barrier.release()
+
+    await renewing
+    expect(await returning).toMatchObject({
+      dueAt: new Date('2026-03-23T12:00:00.000Z'),
+      returnedAt: new Date('2026-03-02T12:00:00.000Z'),
+      renewalCount: 1,
+      status: 'RETURNED',
+    })
   })
 })

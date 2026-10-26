@@ -87,6 +87,20 @@ export function loanRepositoryContract(
       ])
     })
 
+    it('[RENEW-R3] markRenewed no guarda la renovación de un préstamo ya devuelto', async () => {
+      const loan = aLoan(cienAnos, 'ana@uc.cl')
+      await loans.add(loan)
+      await loans.markReturned(loan.markReturned(new Date('2026-03-05T09:30:00.000Z')))
+
+      expect(await loans.markRenewed(loan.renew(new Date(FIXED_NOW)))).toBe(false)
+      const stored = await loans.findById(loan.id)
+      expect([stored?.dueAt.toISOString(), stored?.renewalCount, stored?.isReturned]).toEqual([
+        '2026-03-16T12:00:00.000Z',
+        0,
+        true,
+      ])
+    })
+
     it('[LOAN-R7] busca por correo normalizado y ordena del más reciente al más antiguo', async () => {
       const older = aLoan(cienAnos, 'ana@uc.cl', '2026-03-01T10:00:00.000Z')
       const newer = aLoan(ficciones, 'ana@uc.cl', '2026-03-02T10:00:00.000Z')

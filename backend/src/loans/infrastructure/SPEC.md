@@ -1,10 +1,10 @@
 # SPEC · loans · capa infrastructure
 
-| Campo        | Valor                                                       |
-| ------------ | ----------------------------------------------------------- |
-| Capa         | infrastructure (ver `specs/architecture.md`)                |
-| Implementa   | LOAN-R2, LOAN-R4, LOAN-R5, LOAN-R7 y RENEW-R2 en PostgreSQL |
-| Tipo de test | integración con Testcontainers (`postgres:17-alpine`)       |
+| Campo        | Valor                                                                 |
+| ------------ | --------------------------------------------------------------------- |
+| Capa         | infrastructure (ver `specs/architecture.md`)                          |
+| Implementa   | LOAN-R2, LOAN-R4, LOAN-R5, LOAN-R7, RENEW-R2 y RENEW-R3 en PostgreSQL |
+| Tipo de test | integración con Testcontainers (`postgres:17-alpine`)                 |
 
 ## Responsabilidad
 
@@ -26,13 +26,14 @@ Persistir préstamos y garantizar en la base de datos las reglas que dependen de
 
 ## Reglas que implementa
 
-| Regla    | Dónde se implementa                                                                                                                                                                                                            | Test                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| LOAN-R2  | `lockBorrower`: `pg_advisory_xact_lock(3143, hashtext(correo))` hasta el fin de la transacción                                                                                                                                 | `loan.repository.int-spec.ts` (concurrencia)                                                |
-| LOAN-R4  | Índice único parcial `uq_loans_unreturned_book_borrower ... WHERE returned_at IS NULL`. 23505 se traduce a `DuplicateLoanError`                                                                                                | `loan.repository.int-spec.ts` · suite de contrato                                           |
-| LOAN-R5  | `markReturned`: `UPDATE ... WHERE returned_at IS NULL`                                                                                                                                                                         | suite de contrato                                                                           |
-| LOAN-R7  | `findByBorrower`: por correo normalizado, `ORDER BY loaned_at DESC, id`                                                                                                                                                        | suite de contrato                                                                           |
-| RENEW-R2 | Columna `renewal_count integer NOT NULL DEFAULT 0` (los préstamos que ya existían parten en 0) con `CHECK (renewal_count BETWEEN 0 AND 1)`. `markRenewed`: `UPDATE ... WHERE renewal_count = anterior AND returned_at IS NULL` | `loan.repository.int-spec.ts` (concurrencia) · `migrations.int-spec.ts` · suite de contrato |
+| Regla    | Dónde se implementa                                                                                                                                                                                                            | Test                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| LOAN-R2  | `lockBorrower`: `pg_advisory_xact_lock(3143, hashtext(correo))` hasta el fin de la transacción                                                                                                                                 | `loan.repository.int-spec.ts` (concurrencia)                                                               |
+| LOAN-R4  | Índice único parcial `uq_loans_unreturned_book_borrower ... WHERE returned_at IS NULL`. 23505 se traduce a `DuplicateLoanError`                                                                                                | `loan.repository.int-spec.ts` · suite de contrato                                                          |
+| LOAN-R5  | `markReturned`: `UPDATE ... WHERE returned_at IS NULL`                                                                                                                                                                         | suite de contrato · `loan.repository.int-spec.ts` (carrera con renovar: `ReturnLoan` responde lo guardado) |
+| LOAN-R7  | `findByBorrower`: por correo normalizado, `ORDER BY loaned_at DESC, id`                                                                                                                                                        | suite de contrato                                                                                          |
+| RENEW-R2 | Columna `renewal_count integer NOT NULL DEFAULT 0` (los préstamos que ya existían parten en 0) con `CHECK (renewal_count BETWEEN 0 AND 1)`. `markRenewed`: `UPDATE ... WHERE renewal_count = anterior AND returned_at IS NULL` | `loan.repository.int-spec.ts` (concurrencia) · `migrations.int-spec.ts` · suite de contrato                |
+| RENEW-R3 | `markRenewed` exige `returned_at IS NULL`: no renueva un préstamo ya devuelto                                                                                                                                                  | suite de contrato · `loan.repository.int-spec.ts` (carrera con devolver)                                   |
 
 ## Cómo se prueba esta capa
 
@@ -40,4 +41,5 @@ Integración con PostgreSQL real. La suite `loanRepositoryContract` corre aquí 
 fake. Los tests de concurrencia usan una barrera (`holdBookRows` con `FOR UPDATE` y
 `waitForBlockedSessions`) para que las solicitudes compitan de verdad: sin la barrera la
 carrera casi nunca ocurre y el test pasaría aunque faltara el lock. La renovación simultánea
-usa la misma idea con `holdLoanRows` sobre la fila del préstamo.
+y la carrera entre renovar y devolver usan la misma idea con `holdLoanRows` sobre la fila del
+préstamo. En la carrera, la primera sesión que llega a la barrera es la primera en tomar la fila.

@@ -85,6 +85,17 @@ describe('Loan', () => {
       expect(error).toMatchObject({ message: 'El préstamo ya fue renovado' })
     })
 
+    it('[RENEW-R2] un préstamo renovado y vencido responde RENEWAL_LIMIT_REACHED', () => {
+      const renewed = loan.renew(new Date('2026-03-10T08:00:00.000Z')) // vence 2026-03-23T12:00:00.000Z
+
+      const error = thrownBy(() => renewed.renew(new Date('2026-03-23T12:00:00.001Z')))
+
+      expect(error).toMatchObject({
+        code: 'RENEWAL_LIMIT_REACHED',
+        message: 'El préstamo ya fue renovado',
+      })
+    })
+
     it('[RENEW-R3] se puede renovar justo en el instante de vencimiento', () => {
       const renewed = loan.renew(new Date('2026-03-16T12:00:00.000Z'))
 
@@ -92,9 +103,10 @@ describe('Loan', () => {
     })
 
     it('[RENEW-R3] un milisegundo después del vencimiento está OVERDUE y no se puede renovar', () => {
-      expect(thrownBy(() => loan.renew(new Date('2026-03-16T12:00:00.001Z')))).toBeInstanceOf(
-        LoanOverdueError,
-      )
+      const error = thrownBy(() => loan.renew(new Date('2026-03-16T12:00:00.001Z')))
+
+      expect(error).toBeInstanceOf(LoanOverdueError)
+      expect(error).toMatchObject({ message: 'El préstamo está vencido y no se puede renovar' })
     })
 
     it('[RENEW-R3] un préstamo devuelto no se puede renovar', () => {
@@ -103,6 +115,19 @@ describe('Loan', () => {
       expect(thrownBy(() => returned.renew(new Date('2026-03-06T10:00:00.000Z')))).toBeInstanceOf(
         AlreadyReturnedError,
       )
+    })
+
+    it('[RENEW-R3] un préstamo devuelto y ya renovado responde ALREADY_RETURNED', () => {
+      const returned = loan
+        .renew(new Date('2026-03-10T08:00:00.000Z'))
+        .markReturned(new Date('2026-03-12T10:00:00.000Z'))
+
+      const error = thrownBy(() => returned.renew(new Date('2026-03-13T10:00:00.000Z')))
+
+      expect(error).toMatchObject({
+        code: 'ALREADY_RETURNED',
+        message: 'El préstamo ya fue devuelto',
+      })
     })
   })
 })
