@@ -30,13 +30,31 @@ export const METRIC_LABELS = {
   reliability_rating: 'Nota de confiabilidad',
   security_rating: 'Nota de seguridad',
   sqale_rating: 'Nota de mantenibilidad',
+  new_reliability_rating: 'Nota de confiabilidad del código nuevo',
+  new_security_rating: 'Nota de seguridad del código nuevo',
+  new_maintainability_rating: 'Nota de mantenibilidad del código nuevo',
+  new_coverage: 'Cobertura del código nuevo',
+  new_duplicated_lines_density: 'Líneas duplicadas en el código nuevo',
+  new_lines: 'Líneas nuevas',
 }
 
-const PERCENT_METRICS = new Set(['coverage', 'duplicated_lines_density'])
-const RATING_METRICS = new Set(['reliability_rating', 'security_rating', 'sqale_rating'])
+const PERCENT_METRICS = new Set([
+  'coverage',
+  'duplicated_lines_density',
+  'new_coverage',
+  'new_duplicated_lines_density',
+])
+const RATING_METRICS = new Set([
+  'reliability_rating',
+  'security_rating',
+  'sqale_rating',
+  'new_reliability_rating',
+  'new_security_rating',
+  'new_maintainability_rating',
+])
 const RATINGS = { 1: 'A', 2: 'B', 3: 'C', 4: 'D', 5: 'E' }
 
-const SEVERITY_TEXT = {
+export const SEVERITY_TEXT = {
   BLOCKER: 'bloqueante',
   CRITICAL: 'crítica',
   MAJOR: 'mayor',
@@ -44,21 +62,35 @@ const SEVERITY_TEXT = {
   INFO: 'informativa',
 }
 const SEVERITY_ORDER = Object.keys(SEVERITY_TEXT)
-const TYPE_TEXT = { BUG: 'Bug', VULNERABILITY: 'Vulnerabilidad', CODE_SMELL: 'Code smell' }
+export const TYPE_TEXT = { BUG: 'Bug', VULNERABILITY: 'Vulnerabilidad', CODE_SMELL: 'Code smell' }
 const PROBABILITY_TEXT = { HIGH: 'alta', MEDIUM: 'media', LOW: 'baja' }
 
 /** Convierte el valor de texto de la API en número, o en letra A a E si es una nota. */
-function parseMeasure(metric, value) {
+export function parseMeasure(metric, value) {
   if (value === undefined || value === null || value === '') return null
   if (RATING_METRICS.has(metric)) return RATINGS[Math.round(Number(value))] ?? null
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }
 
-/** "projectKey:backend/src/a.ts" a "backend/src/a.ts" */
-const fileOf = (component = '') => component.slice(component.indexOf(':') + 1)
+/**
+ * Valores de /api/measures/component por métrica. Las métricas del código nuevo (new_*) traen
+ * el valor en period.value (o periods[0].value en versiones antiguas), no en value.
+ */
+export function measureValues(measures) {
+  return Object.fromEntries(
+    (measures?.component?.measures ?? []).map((m) => [
+      m.metric,
+      m.value ?? m.period?.value ?? m.periods?.[0]?.value,
+    ]),
+  )
+}
 
-const bySeverity = (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
+/** "projectKey:backend/src/a.ts" a "backend/src/a.ts" */
+export const fileOf = (component = '') => component.slice(component.indexOf(':') + 1)
+
+export const bySeverity = (a, b) =>
+  SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
 
 /**
  * Junta las respuestas de la API en un resumen estable y fácil de leer.
@@ -82,9 +114,7 @@ export function buildSummary({
   hotspots,
   top = 10,
 }) {
-  const values = Object.fromEntries(
-    (measures?.component?.measures ?? []).map((m) => [m.metric, m.value]),
-  )
+  const values = measureValues(measures)
   const metrics = Object.fromEntries(
     METRIC_KEYS.map((metric) => [metric, parseMeasure(metric, values[metric])]),
   )
@@ -156,7 +186,7 @@ export function formatMetric(metric, value) {
   return number.toLocaleString('es-CL')
 }
 
-function thresholdText(condition) {
+export function thresholdText(condition) {
   const value = formatMetric(condition.metric, condition.threshold)
   // En las notas un número mayor es peor: GT 1 significa "peor que A"
   if (RATING_METRICS.has(condition.metric)) return `${value} o mejor`
@@ -164,10 +194,10 @@ function thresholdText(condition) {
   return condition.comparator === 'LT' ? `mínimo ${value}` : `máximo ${value}`
 }
 
-const statusIcon = (status) => (status === 'OK' ? '✅' : status === 'ERROR' ? '❌' : '⚪')
+export const statusIcon = (status) => (status === 'OK' ? '✅' : status === 'ERROR' ? '❌' : '⚪')
 
 /** Texto de una celda de tabla: sin saltos de línea ni barras que rompan la tabla. */
-const cell = (text) =>
+export const cell = (text) =>
   String(text ?? '')
     .replace(/\s+/g, ' ')
     .replace(/\|/g, '\\|')

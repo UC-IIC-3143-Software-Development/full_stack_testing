@@ -501,6 +501,8 @@ jobs:
   # lo levanta, cambia la contraseña de admin por una aleatoria, crea un token y la quality
   # gate (las condiciones mínimas de calidad), analiza con sonar-project.properties y exporta
   # el resumen. Es el mismo comando que corres en tu máquina.
+  # En un PR mide el código nuevo: analiza la base y después el HEAD, aplica la quality gate
+  # del código nuevo y un bot comenta el resultado en el PR (comentario <!-- sonarqube-pr -->).
   # ---------------------------------------------------------------------------
   sonarqube:
     name: 5 · SonarQube efímero (calidad, cobertura y quality gate)
@@ -509,13 +511,19 @@ jobs:
     # cambió) no deja lcov: este job lo genera en el paso "Generar la cobertura que falte"
     if: ${{ !cancelled() && needs.cambios.outputs.stack == 'true' && !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
+      pull-requests: write # crear o actualizar el comentario del bot con el código nuevo
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Historia completa: run.mjs hace checkout de la base y git blame dice qué líneas
+          # son nuevas. En un PR se analiza el HEAD de la rama (no el merge con main), así los
+          # links del comentario apuntan a las mismas líneas que vio SonarQube
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -553,8 +561,47 @@ jobs:
               echo "::endgroup::"
             fi
           done
+      # Si la quality gate falla, este paso falla y el job queda en rojo. El comentario del PR
+      # se publica igual en el paso siguiente (if: always())
       - name: SonarQube efímero (levantar, analizar, exportar y borrar)
+        env:
+          # Vacías en push a main: un solo análisis de todo el código con QUALITY_GATE.
+          # En un PR: modo PR, dos análisis y la quality gate del código nuevo
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node tools/sonarqube/run.mjs
+      # Un PR desde un fork no recibe permiso de escritura: ahí no se comenta
+      - name: Comentar el código nuevo en el PR (bot de SonarQube)
+        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('node:fs')
+            const file = 'reports/sonarqube/pr.md'
+            if (!fs.existsSync(file)) {
+              core.warning('No hay reports/sonarqube/pr.md: el análisis no llegó a exportar el código nuevo.')
+              return
+            }
+            const marker = '<!-- sonarqube-pr -->'
+            const body = fs.readFileSync(file, 'utf8').slice(0, 65000)
+            const { owner, repo } = context.repo
+            const issue_number = context.payload.pull_request.number
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            })
+            const previous = comments.find(
+              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
+            )
+            if (previous) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body })
+              core.info(`Comentario actualizado: ${previous.html_url}`)
+            } else {
+              const { data } = await github.rest.issues.createComment({ owner, repo, issue_number, body })
+              core.info(`Comentario creado: ${data.html_url}`)
+            }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -562,6 +609,8 @@ jobs:
           path: |
             reports/sonarqube/summary.json
             reports/sonarqube/summary.md
+            reports/sonarqube/pr.json
+            reports/sonarqube/pr.md
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------

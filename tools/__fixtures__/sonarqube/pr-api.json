@@ -1,0 +1,58 @@
+{
+  "projectStatus": {
+    "projectStatus": {
+      "status": "ERROR",
+      "conditions": [
+        { "status": "ERROR", "metricKey": "new_reliability_rating", "actualValue": "3" },
+        { "status": "OK", "metricKey": "new_security_rating", "actualValue": "1" },
+        { "status": "OK", "metricKey": "new_maintainability_rating", "actualValue": "1" },
+        { "status": "ERROR", "metricKey": "new_coverage", "actualValue": "64.5" },
+        { "status": "OK", "metricKey": "new_duplicated_lines_density", "actualValue": "0.0" }
+      ]
+    }
+  },
+  "measures": {
+    "component": {
+      "key": "biblioteca-uc",
+      "measures": [
+        { "metric": "new_reliability_rating", "period": { "index": 1, "value": "3.0" } },
+        { "metric": "new_security_rating", "period": { "index": 1, "value": "1.0" } },
+        { "metric": "new_maintainability_rating", "periods": [{ "index": 1, "value": "2.0" }] },
+        { "metric": "new_coverage", "period": { "index": 1, "value": "64.5" } },
+        { "metric": "new_duplicated_lines_density", "period": { "index": 1, "value": "0.0" } },
+        { "metric": "new_lines", "period": { "index": 1, "value": "142" } },
+        { "metric": "new_bugs", "period": { "index": 1, "value": "1" } },
+        { "metric": "new_vulnerabilities", "period": { "index": 1, "value": "0" } },
+        { "metric": "new_code_smells", "period": { "index": 1, "value": "2" } }
+      ]
+    }
+  },
+  "issues": {
+    "total": 3,
+    "issues": [
+      {
+        "severity": "MINOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S6759",
+        "message": "Mark the props of the component as read-only.",
+        "component": "biblioteca-uc:frontend/src/features/catalog/components/BookCard.tsx",
+        "line": 12
+      },
+      {
+        "severity": "MAJOR",
+        "type": "BUG",
+        "rule": "typescript:S6544",
+        "message": "Promise returned in function argument where a void return was expected.",
+        "component": "biblioteca-uc:backend/src/main.ts",
+        "line": 41
+      },
+      {
+        "severity": "MAJOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S3358",
+        "message": "Extract this nested ternary | operation.",
+        "component": "biblioteca-uc:frontend/src/features/loans/components/LoanList.tsx"
+      }
+    ]
+  }
+}

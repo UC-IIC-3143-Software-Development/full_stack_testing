@@ -80,7 +80,7 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 | 3 | `semgrep` | Semgrep `p/default`, `p/typescript`, `p/nodejs`, `p/owasp-top-ten` y `.semgrep/rules.yml` | Patrones vulnerables y violaciones de nuestras specs (reloj, SQL, fetch, XSS, console.log) | hallazgo de severidad ERROR |
 | 4 | `trivy-fs` | Trivy fs (`--scanners vuln,misconfig`) | Dependencias con vulnerabilidades conocidas (lockfiles) y misconfiguraciones de Dockerfiles y `docker-compose.yml` | CRITICAL con parche |
 | 5 | `unit-backend`, `unit-frontend` | Jest, Vitest, Testing Library, MSW | Reglas de negocio y componentes, sin mocks (fakes en memoria) | un test falla |
-| 5 | `sonarqube` | SonarQube Community en un contenedor temporal, sonar-scanner-cli, `tools/sonarqube/run.mjs` | Bugs, vulnerabilidades, code smells, security hotspots, cobertura y duplicación de todo el repo ([detalle](#sonarqube-efímero-etapa-5)) | la quality gate falla |
+| 5 | `sonarqube` | SonarQube Community en un contenedor temporal, sonar-scanner-cli, `tools/sonarqube/run.mjs` | Bugs, vulnerabilidades, code smells, security hotspots, cobertura y duplicación de todo el repo. En un PR, el código nuevo y un comentario del bot con el resultado ([detalle](#código-nuevo-en-el-pr-y-el-bot-que-comenta)) | la quality gate falla |
 | 6 | `integracion-backend` | Jest + Testcontainers (PostgreSQL) + supertest | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI | un test falla |
 | 7 | `e2e-frontend` | Playwright + playwright-bdd + MSW | Flujos de usuario, regresión visual, colores, posición, accesibilidad | un test falla |
 | 8 | `imagenes` | Docker Compose, Trivy image (`--scanners vuln`), CycloneDX | Vulnerabilidades dentro de la imagen, SBOM | CRITICAL con parche |
@@ -126,7 +126,8 @@ puede seguir. Ninguna depende del criterio de quien mira el log.
 | Semgrep | 0 hallazgos ERROR | `.semgrep/rules.yml` y el paso "Compuerta" del job |
 | Trivy fs e imagen | 0 CRITICAL que tengan parche | paso "Compuerta" de cada job |
 | spec-trace | 6 tests por regla y capa como máximo, 0 huérfanos | `--max-per-layer` |
-| SonarQube (quality gate) | 0 bugs, 0 vulnerabilidades, cobertura mínima 80 %, máximo 3 % de líneas duplicadas, nota de mantenibilidad A | `QUALITY_GATE` en `tools/sonarqube/run.mjs` |
+| SonarQube (quality gate en push a main) | 0 bugs, 0 vulnerabilidades, cobertura mínima 80 %, máximo 3 % de líneas duplicadas, nota de mantenibilidad A | `QUALITY_GATE` en `tools/sonarqube/run.mjs` |
+| SonarQube (quality gate en un PR, código nuevo) | notas A de confiabilidad, seguridad y mantenibilidad, cobertura mínima 80 % y máximo 3 % de líneas duplicadas en el código nuevo | `QUALITY_GATE_PR` en `tools/sonarqube/run.mjs` |
 | k6 | p95 menor a 500 ms y menos de 1 % de errores | `tools/perf/k6-smoke.js` |
 | Lighthouse | buenas prácticas 0,9 (error), rendimiento y SEO (aviso). Sin accesibilidad: Lighthouse usa axe por debajo y axe ya corre con Playwright en la etapa 7 | `frontend/lighthouserc.json` |
 | ZAP | 0 alertas High no ignoradas, 0 reglas FAIL | `tools/zap/rules.tsv` |
@@ -168,14 +169,68 @@ está en `QUALITY_GATE` dentro de [`tools/sonarqube/run.mjs`](../tools/sonarqube
 | Líneas duplicadas | máximo 3 % | Copiar y pegar obliga a corregir el mismo error en varios lugares |
 | Nota de mantenibilidad | A | Corregir los code smells debe tomar menos del 5 % de lo que costó escribir el código |
 
-Las condiciones miran **el código completo**. La quality gate que trae SonarQube (Sonar way)
-mira solo el "código nuevo" desde el análisis anterior, pero aquí cada corrida es un proyecto
-nuevo y no hay análisis anterior con qué comparar.
+En push a main las condiciones miran **el código completo**: esa corrida es un proyecto nuevo y
+no hay análisis anterior con qué comparar. En un PR la quality gate es otra y mira solo el código
+nuevo (ver la sección siguiente).
 
 La cobertura se mide sobre las mismas carpetas que miden Jest y Vitest (dominio y aplicación en
 el backend, componentes y dominio en el frontend). Infraestructura, presentación y rutas se
 prueban con integración, contrato y E2E, que no generan lcov. Qué se analiza, qué cuenta como
 test y qué queda fuera está en [`sonar-project.properties`](../sonar-project.properties).
+
+### Código nuevo en el PR y el bot que comenta
+
+**Código nuevo** son las líneas que el PR agrega o cambia respecto de la rama base. La idea
+("clean as you code") es que el código que ya estaba en main no bloquee tu PR, pero lo que tú
+escribes salga limpio. Con el tiempo, todo el código pasa por esa vara.
+
+SonarQube Community no trae análisis de PR ni comentarios en el PR (eso es de las ediciones
+pagadas y de SonarQube Cloud). Por eso `run.mjs`, cuando recibe `BASE_SHA` y `HEAD_SHA`, hace
+**dos análisis** en el mismo SonarQube temporal:
+
+1. `git checkout` de la merge base (el commit de main donde nació la rama del PR) y análisis
+   como versión `base`, sin cobertura. El análisis lleva la fecha de ese commit
+   (`sonar.projectDate`).
+2. Vuelta al HEAD del PR, período de código nuevo `PREVIOUS_VERSION` por API
+   (`api/new_code_periods/set`) y análisis como versión `pr`, con la cobertura de los unitarios.
+3. Con git activado (`sonar.scm.disabled=false`), SonarQube lee `git blame`: una línea es nueva
+   si su commit es posterior al análisis `base`. Por eso el checkout trae la historia completa
+   (`fetch-depth: 0`).
+
+Las dos corridas usan el `sonar-project.properties` del HEAD (`-Dproject.settings`), porque la
+base puede no tenerlo o tener otra versión. ¿Por qué no basta un análisis? Porque SonarQube
+necesita un análisis anterior para saber qué cambió. Sin la base, todo el código sería "viejo" y
+no habría nada nuevo que medir.
+
+La quality gate del PR (`QUALITY_GATE_PR`) pide en el código nuevo:
+
+| Condición (código nuevo) | Umbral |
+| --- | --- |
+| Nota de confiabilidad (bugs) | A |
+| Nota de seguridad (vulnerabilidades) | A |
+| Nota de mantenibilidad (code smells) | A |
+| Cobertura de los tests unitarios | mínimo 80 % |
+| Líneas duplicadas | máximo 3 % |
+
+Con menos de 20 líneas nuevas, SonarQube no evalúa cobertura ni duplicación: con tan pocas
+líneas, un solo `if` sin test movería mucho el porcentaje.
+
+El resultado queda en `reports/sonarqube/pr.json` y `pr.md` (artefacto `sonarqube`). En el mismo
+job, un paso con `actions/github-script` publica `pr.md` como comentario del PR titulado
+**"SonarQube · código nuevo de este PR"**: estado de la quality gate, las tres notas con su color
+(🟢 A, 🟡 B o C, 🟠 D, 🔴 E), cobertura y duplicación del código nuevo y la tabla de defectos
+nuevos con link al archivo y la línea en el último commit del PR. Si no hay defectos nuevos, lo
+dice. El comentario lleva el marcador `<!-- sonarqube-pr -->` y se actualiza en cada push (no se
+acumulan comentarios). Se publica aunque la quality gate falle, y el job queda en rojo igual.
+En un PR desde un fork no se comenta, porque GitHub no le da permiso de escritura. El armado del
+comentario es una función pura (`tools/sonarqube/pr-report.mjs`) con tests y un ejemplo de
+respuestas de la API en `tools/__fixtures__/sonarqube/`.
+
+En push a main hay un solo análisis de todo el código con `QUALITY_GATE`, sin git.
+
+Un detalle: la cobertura viene de los artefactos de `unit-backend` y `unit-frontend`, que corren
+sobre el merge del PR con main. Si main cambió los mismos archivos que tu PR, las líneas pueden
+no calzar del todo. Actualiza tu rama con main y vuelve a correr.
 
 ### Por qué efímero
 
@@ -195,7 +250,9 @@ usa unos minutos y lo borra. No hay nada que pagar ni nada que quede corriendo.
  │   2. espera /api/system/status = UP                                      │
  │   3. contraseña aleatoria para admin, token y quality gate por API       │
  │   4. docker run sonar-scanner-cli con sonar-project.properties           │
+ │      (en un PR: primero la base y después el HEAD)                       │
  │   5. quality gate, métricas e issues a reports/sonarqube/summary.json    │
+ │      (en un PR: código nuevo a pr.json y pr.md, el bot lo comenta)       │
  │   6. docker rm: el contenedor desaparece                                 │
  └────────┬─────────────────────────────────────────────────────────────────┘
           ▼
@@ -237,6 +294,10 @@ node tools/sonarqube/run.mjs                 # puerto 19000, borra todo al termi
 node tools/sonarqube/run.mjs --port 19500    # si el 19000 está ocupado
 cat reports/sonarqube/summary.md
 
+# Modo PR en tu rama: necesita tus cambios en commits (hace git checkout de la base)
+BASE_SHA=origin/main HEAD_SHA=HEAD node tools/sonarqube/run.mjs
+cat reports/sonarqube/pr.md
+
 # Para mirar la interfaz web: elige tu contraseña y deja el contenedor arriba
 SONAR_ADMIN_PASSWORD='UnaClaveLarga#2026' node tools/sonarqube/run.mjs --keep
 ```
@@ -276,7 +337,8 @@ secretos de miles de repositorios en los logs. Por eso:
    contrato-backend/      contract-coverage.json
    api-smoke/             endpoints.json
    schemathesis/          junit.xml
-   sonarqube/             summary.json (quality gate, métricas e issues)
+   sonarqube/             summary.json (quality gate, métricas e issues) y, en un PR,
+                          pr.json y pr.md (código nuevo, lo comenta el bot del job)
    semgrep/ trivy-*/ zap/ gitleaks/ lighthouse/ k6/ spec-trace/
             │
             ▼  etapa 10

@@ -78,7 +78,9 @@ Para fijar el reloj del backend (fechas de devolución reproducibles):
 ### Cada app por separado
 
 ```bash
-# Backend: necesita PostgreSQL (docker compose up -d db)
+# Backend: necesita PostgreSQL (docker compose up -d db) y DATABASE_URL, que es obligatoria
+# (no tiene valor por defecto: sin ella el backend no parte)
+export DATABASE_URL=postgres://biblioteca:biblioteca@localhost:5432/biblioteca
 cd backend && npm ci && npm run start:dev
 
 # Frontend con mock server: NO necesita backend
@@ -137,7 +139,7 @@ variantes del mismo caso.
 | Arquitectura | Las capas respetan sus dependencias (ARCH-R1 a ARCH-R8) | dependency-cruiser | `npm run test:arch` | 2 |
 | Lint del contrato | El OpenAPI está completo y no rompe clientes | Spectral, oasdiff | `.spectral.yaml` | 2 |
 | Trazabilidad | Reglas con tests, sin huérfanos, dentro del presupuesto | `tools/spec-trace.mjs` | `tools/` | 2 |
-| Calidad de código | Bugs, vulnerabilidades, code smells (código difícil de mantener), cobertura y duplicación de todo el repo, con una quality gate que aprueba o reprueba | SonarQube Community efímero (contenedor temporal en el runner) | `sonar-project.properties`, `tools/sonarqube/` | 5 |
+| Calidad de código | Bugs, vulnerabilidades, code smells (código difícil de mantener), cobertura y duplicación. En un PR, la quality gate mira el código nuevo y un bot comenta el resultado | SonarQube Community efímero (contenedor temporal en el runner) | `sonar-project.properties`, `tools/sonarqube/` | 5 |
 | Secretos | Credenciales en el código o el historial | gitleaks (hook y CI) | `.githooks/`, `.gitleaks.toml` | 1 |
 | SAST | Código vulnerable y violaciones de las specs | Semgrep | `.semgrep/` | 3 |
 | SCA | Dependencias con vulnerabilidades conocidas | Trivy fs (vulnerabilidades) | `ci.yml` | 4 |
@@ -195,6 +197,25 @@ En cada PR la etapa 10 deja (y actualiza en cada push) un comentario con:
    las métricas (bugs, vulnerabilidades, code smells, cobertura, duplicación) y los principales
    issues. SonarQube se borra al terminar el job, así que esta sección y el artefacto `sonarqube`
    son la evidencia. Qué es cada cosa y por qué es efímero: [`docs/pipeline.md`](docs/pipeline.md#sonarqube-efímero-etapa-5).
+
+### SonarQube comenta el código nuevo de tu PR
+
+Además del comentario de evidencia, el job de SonarQube (etapa 5) deja su propio comentario,
+**"SonarQube · código nuevo de este PR"**, y lo actualiza en cada push.
+
+- **Código nuevo** son las líneas que tu PR agrega o cambia respecto de main. La quality gate del
+  PR mira solo eso: notas A de confiabilidad, seguridad y mantenibilidad, cobertura mínima 80 % y
+  máximo 3 % de líneas duplicadas. El código que ya estaba en main no bloquea tu PR.
+- **El bot** publica el estado de la quality gate, las tres notas con su color, la cobertura y la
+  duplicación del código nuevo y una tabla con cada defecto nuevo (severidad, tipo, link al
+  archivo y la línea, mensaje y regla). Si no hay defectos nuevos, lo dice. Se publica aunque la
+  gate falle, y en ese caso el job queda en rojo. En un PR desde un fork no comenta.
+- **Por qué dos análisis**: SonarQube Community no trae análisis de PR. Para saber qué es nuevo,
+  el job levanta SonarQube en un contenedor temporal, analiza primero la base de tu rama y después
+  tu último commit, y con `git blame` separa las líneas nuevas. Al terminar, el contenedor se
+  borra.
+
+Detalle en [`docs/pipeline.md`](docs/pipeline.md#código-nuevo-en-el-pr-y-el-bot-que-comenta).
 
 Las imágenes viven en la rama huérfana `evidence` (`pr-<número>/<run_id>/`) y los
 reportes completos (HTML de Playwright, ZAP y Lighthouse, SBOM) quedan como artefactos
