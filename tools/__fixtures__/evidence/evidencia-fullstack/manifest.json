@@ -1,0 +1,19 @@
+{
+  "target": "fullstack",
+  "items": [
+    {
+      "id": "FLOW-CAT-01",
+      "title": "Buscar un libro por autor sin tildes",
+      "status": "passed",
+      "video": "videos/FLOW-CAT-01.webm",
+      "screenshots": ["screenshots/FLOW-CAT-01-1-catalogo.png"]
+    },
+    {
+      "id": "FLOW-PRE-01",
+      "title": "Pedir prestado un libro disponible",
+      "status": "passed",
+      "video": "videos/FLOW-PRE-01.webm",
+      "screenshots": ["screenshots/FLOW-PRE-01-2-confirmacion.png"]
+    }
+  ]
+}

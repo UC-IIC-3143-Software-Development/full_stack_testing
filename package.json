@@ -1,0 +1,29 @@
+{
+  "name": "full-stack-testing-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Herramientas de CI del monorepo: lint del contrato, trazabilidad spec a tests, smoke de la API y evidencia del PR",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint:openapi": "spectral lint specs/api/openapi.yaml --ruleset .spectral.yaml --fail-severity error",
+    "spec:trace": "node tools/spec-trace.mjs",
+    "api:smoke": "node tools/api-smoke.mjs",
+    "seed:stack": "node tools/seed-stack.mjs",
+    "evidence:gif": "node tools/evidence/videos-to-gif.mjs",
+    "evidence:comment": "node tools/evidence/build-comment.mjs",
+    "evidence:example": "node tools/evidence/build-comment.mjs --artifacts tools/__fixtures__/evidence --out docs/ejemplo-comentario-pr.md --example",
+    "test:tools": "node --test \"tools/**/*.test.mjs\"",
+    "format": "prettier --write \"tools/**/*.{mjs,js,json}\" \".github/**/*.yml\" \".semgrep/**/*.yml\" package.json docker-compose.yml .spectral.yaml .hadolint.yaml",
+    "format:check": "prettier --check \"tools/**/*.{mjs,js,json}\" \".github/**/*.yml\" \".semgrep/**/*.yml\" package.json docker-compose.yml .spectral.yaml .hadolint.yaml",
+    "hooks:install": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.17.0",
+    "prettier": "^3.9.10",
+    "yaml": "^2.9.1"
+  }
+}

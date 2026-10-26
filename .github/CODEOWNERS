@@ -1,0 +1,11 @@
+# Quién revisa qué. GitHub pide la revisión automáticamente según la ruta.
+# Está comentado a propósito: descomenta las líneas y cambia el equipo por uno que
+# exista en tu organización (un equipo inexistente aparece como error en GitHub).
+#
+# Las specs son la fuente de verdad: todo cambio lo revisa el equipo docente
+# /specs/       @tu-organizacion/docentes
+#
+# El pipeline y sus herramientas definen qué se considera "verde"
+# /.github/     @tu-organizacion/docentes
+# /tools/       @tu-organizacion/docentes
+# /.semgrep/    @tu-organizacion/docentes

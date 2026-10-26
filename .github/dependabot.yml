@@ -1,0 +1,57 @@
+# Actualizaciones automáticas de dependencias (constitución P5.2).
+# Cada PR de Dependabot pasa por el mismo pipeline que cualquier otro cambio.
+#
+# cooldown: espera unos días antes de proponer una versión recién publicada. Los
+# ataques a la cadena de suministro en npm suelen detectarse y retirarse en pocos
+# días, así que no conviene adoptar una versión el mismo día que sale.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      herramientas:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      backend-menores:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      frontend-menores:
+        update-types: [minor, patch]
+
+  # Mantiene al día los SHA fijados de las acciones (el comentario # vX.Y.Z se actualiza solo)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      acciones:
+        patterns: ['*']
+
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

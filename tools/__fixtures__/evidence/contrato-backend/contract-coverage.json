@@ -1,0 +1,53 @@
+{
+  "operations": [
+    {
+      "operationId": "getHealth",
+      "method": "GET",
+      "path": "/api/health",
+      "statuses": [200],
+      "passed": true
+    },
+    {
+      "operationId": "listBooks",
+      "method": "GET",
+      "path": "/api/books",
+      "statuses": [200, 400],
+      "passed": true
+    },
+    {
+      "operationId": "createBook",
+      "method": "POST",
+      "path": "/api/books",
+      "statuses": [201, 400, 409],
+      "passed": true
+    },
+    {
+      "operationId": "getBook",
+      "method": "GET",
+      "path": "/api/books/{bookId}",
+      "statuses": [200, 400, 404],
+      "passed": true
+    },
+    {
+      "operationId": "listLoans",
+      "method": "GET",
+      "path": "/api/loans",
+      "statuses": [200, 400],
+      "passed": true
+    },
+    {
+      "operationId": "createLoan",
+      "method": "POST",
+      "path": "/api/loans",
+      "statuses": [201, 400, 404, 409],
+      "passed": true
+    },
+    {
+      "operationId": "returnLoan",
+      "method": "POST",
+      "path": "/api/loans/{loanId}/return",
+      "statuses": [200, 400, 404, 409],
+      "passed": true
+    }
+  ]
+}

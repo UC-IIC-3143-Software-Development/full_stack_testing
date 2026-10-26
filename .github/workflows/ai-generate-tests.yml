@@ -1,0 +1,143 @@
+# Agente que PROPONE tests de contrato para una operación del OpenAPI.
+#
+# Respeta la constitución (P4.7): la IA no genera tests en lote. Primero escribe un
+# plan con los casos (partición, código HTTP, capa e ID de regla, máximo 6 por regla),
+# después propone los tests y abre un PR en borrador para que una persona apruebe el
+# plan antes de revisar el código. Nada se integra sin revisión humana.
+#
+# Inspirado en el libro Full Stack Testing, cap. 4, "Claude in GitHub Actions"
+# (p. 139 a 143), que genera tests desde un OpenAPI y abre un PR.
+#
+# Requisitos:
+#   - Secreto ANTHROPIC_API_KEY (sin él, el job termina en verde con un aviso).
+#   - Settings, Actions, General: "Allow GitHub Actions to create and approve pull requests".
+# Ojo: un PR abierto con GITHUB_TOKEN no dispara otros workflows. Para correr el CI
+# sobre la propuesta, haz un push al branch o ciérralo y ábrelo de nuevo.
+name: Proponer tests con IA
+
+on:
+  workflow_dispatch:
+    inputs:
+      operationId:
+        description: Operación de specs/api/openapi.yaml
+        type: choice
+        required: true
+        options:
+          - getHealth
+          - listBooks
+          - createBook
+          - getBook
+          - listLoans
+          - createLoan
+          - returnLoan
+
+permissions: {}
+
+concurrency:
+  group: ai-generate-tests-${{ inputs.operationId }}
+  cancel-in-progress: false
+
+jobs:
+  proponer:
+    name: Proponer tests de contrato para ${{ inputs.operationId }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # crear la rama con la propuesta
+      pull-requests: write # abrir el PR en borrador
+    env:
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+      OPERATION_ID: ${{ inputs.operationId }}
+    steps:
+      - name: Aviso si no hay API key
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: |
+          {
+            echo "### Propuesta de tests con IA omitida"
+            echo ""
+            echo "No existe el secreto ANTHROPIC_API_KEY. Créalo en Settings, Secrets and variables, Actions."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Propuesta omitida: falta el secreto ANTHROPIC_API_KEY."
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias del backend
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        working-directory: backend
+        run: npm ci
+
+      - name: Proponer plan y tests con Claude
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Operación objetivo: ${{ inputs.operationId }} (specs/api/openapi.yaml).
+            Responde y escribe en español de Chile, con tuteo, sin guiones largos ni punto y coma.
+            Código e identificadores en inglés. Prettier sin punto y coma.
+
+            Contexto obligatorio (léelo antes de escribir nada):
+            - specs/constitution.md, en especial P4 (política de tests)
+            - specs/architecture.md (capas e interfaz de scripts)
+            - specs/api/openapi.yaml (la operación objetivo y sus respuestas)
+            - specs/features/*.md (reglas con ID que tocan esta operación)
+            - los tests de contrato que ya existen en backend/test y los SPEC.md de presentation
+
+            Paso 1. Plan. Crea docs/propuestas-ia/${{ inputs.operationId }}.md con una tabla:
+            | Caso | Partición o valor límite | Respuesta esperada (código y code) | Capa | ID de regla |
+            Reglas del plan:
+            - Solo casos que pertenecen a la capa de contrato (HTTP real contra el OpenAPI).
+              Si un caso se detecta en una capa más baja (unit), anótalo en una sección
+              "Fuera de esta capa" y NO lo propongas como test de contrato (P4.1).
+            - Máximo 6 casos por regla. Una partición, un caso (P4.2).
+            - Marca los casos que ya están cubiertos por tests existentes y no los repitas.
+
+            Paso 2. Tests. Escribe solo los casos nuevos del plan en
+            backend/test/contract/${{ inputs.operationId }}.proposed.contract.spec.ts siguiendo el
+            estilo de los tests de contrato existentes. Cada título empieza con el ID de la regla
+            entre corchetes, por ejemplo it('[LOAN-R2] rechaza un cuarto préstamo', ...).
+            Sin mocks, sin aserciones débiles, oráculos literales.
+
+            Paso 3. Verifica que compila con `npm run typecheck` dentro de backend y que la
+            trazabilidad sigue en verde con `node tools/spec-trace.mjs`.
+            No modifiques specs/ ni código de producción.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run typecheck:*),Bash(node tools/spec-trace.mjs:*)"
+
+      - name: Abrir PR en borrador con la propuesta
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ github.token }}
+          branch: ia/tests-${{ inputs.operationId }}-${{ github.run_number }}
+          commit-message: 'test(contrato): propuesta de IA para ${{ inputs.operationId }}'
+          title: 'Propuesta de IA: tests de contrato para ${{ inputs.operationId }}'
+          draft: true
+          labels: |
+            ia
+            tests
+          body: |
+            ## Propuesta de tests generada por IA
+
+            Operación: `${{ inputs.operationId }}`. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Este PR está en borrador a propósito (constitución P4.7):
+
+            - [ ] Revisé el plan en `docs/propuestas-ia/${{ inputs.operationId }}.md` y lo apruebo
+            - [ ] Cada caso está en la capa más baja posible (P4.1)
+            - [ ] No hay más de 6 tests por regla y capa, ni variantes del mismo caso (P4.2)
+            - [ ] Sin mocks, sin aserciones débiles y con oráculos literales (P4.3 a P4.6)
+            - [ ] No duplica tests que ya existen en otras capas
+            - [ ] `npm run test:contract` en `backend/` queda en verde

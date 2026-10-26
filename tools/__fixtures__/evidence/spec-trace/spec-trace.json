@@ -1,0 +1,19 @@
+{
+  "maxPerLayer": 6,
+  "summary": {
+    "ok": true,
+    "requiredRules": 27,
+    "coveredRules": 27,
+    "uncoveredRules": 0,
+    "testFiles": 31,
+    "tests": 142,
+    "stepDefinitions": 14,
+    "orphans": 0,
+    "unknownIds": 0,
+    "overBudget": 0
+  },
+  "rules": [],
+  "orphans": [],
+  "unknown": [],
+  "overBudget": []
+}

@@ -1,0 +1,8 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "biblioteca-frontend:ci",
+  "ArtifactType": "container_image",
+  "Results": [
+    { "Target": "biblioteca-frontend:ci (alpine 3.22.2)", "Class": "os-pkgs", "Type": "alpine" }
+  ]
+}

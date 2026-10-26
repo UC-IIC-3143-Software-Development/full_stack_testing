@@ -1,0 +1,30 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "biblioteca-backend:ci",
+  "ArtifactType": "container_image",
+  "Results": [
+    {
+      "Target": "biblioteca-backend:ci (alpine 3.22.2)",
+      "Class": "os-pkgs",
+      "Type": "alpine",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2026-0002",
+          "PkgName": "libcrypto3",
+          "InstalledVersion": "3.5.1-r0",
+          "FixedVersion": "3.5.2-r0",
+          "Severity": "HIGH",
+          "Title": "Ejemplo de vulnerabilidad alta en el sistema base de la imagen"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-0003",
+          "PkgName": "busybox",
+          "InstalledVersion": "1.37.0-r18",
+          "FixedVersion": "",
+          "Severity": "LOW",
+          "Title": "Ejemplo de vulnerabilidad baja sin parche"
+        }
+      ]
+    }
+  ]
+}

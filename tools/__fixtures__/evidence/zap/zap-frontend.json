@@ -1,0 +1,37 @@
+{
+  "@programName": "ZAP",
+  "@version": "2.17.0",
+  "@generated": "Mon, 2 Mar 2026 12:10:00",
+  "site": [
+    {
+      "@name": "http://localhost:3000",
+      "@host": "localhost",
+      "@port": "3000",
+      "@ssl": "false",
+      "alerts": [
+        {
+          "pluginid": "10049",
+          "alertRef": "10049",
+          "alert": "Storable and Cacheable Content",
+          "name": "Storable and Cacheable Content",
+          "riskcode": "0",
+          "confidence": "2",
+          "riskdesc": "Informational (Medium)",
+          "count": "4",
+          "instances": [{ "uri": "http://localhost:3000/", "method": "GET" }]
+        },
+        {
+          "pluginid": "10038",
+          "alertRef": "10038-1",
+          "alert": "Content Security Policy (CSP) Header Not Set",
+          "name": "Content Security Policy (CSP) Header Not Set",
+          "riskcode": "2",
+          "confidence": "3",
+          "riskdesc": "Medium (High)",
+          "count": "2",
+          "instances": [{ "uri": "http://localhost:3000/prestamos", "method": "GET" }]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "baseUrl": "http://localhost:3001",
+  "durationSeconds": 20,
+  "requests": 1840,
+  "iterations": 460,
+  "avg": 9.4,
+  "p95": 21.7,
+  "failedRate": 0,
+  "thresholds": {
+    "http_req_duration": { "p(95)<500": true },
+    "http_req_failed": { "rate<0.01": true }
+  }
+}

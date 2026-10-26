@@ -1,0 +1,39 @@
+{
+  "target": "mock",
+  "items": [
+    {
+      "id": "FLOW-CAT-01",
+      "title": "Buscar un libro por autor sin tildes",
+      "status": "passed",
+      "video": "videos/FLOW-CAT-01.webm",
+      "screenshots": [
+        "screenshots/FLOW-CAT-01-1-catalogo.png",
+        "screenshots/FLOW-CAT-01-2-resultado.png"
+      ]
+    },
+    {
+      "id": "FLOW-CAT-02",
+      "title": "Un libro sin copias aparece agotado",
+      "status": "passed",
+      "video": "videos/FLOW-CAT-02.webm",
+      "screenshots": ["screenshots/FLOW-CAT-02-1-agotado.png"]
+    },
+    {
+      "id": "FLOW-PRE-01",
+      "title": "Pedir prestado un libro disponible",
+      "status": "passed",
+      "video": "videos/FLOW-PRE-01.webm",
+      "screenshots": [
+        "screenshots/FLOW-PRE-01-1-catalogo.png",
+        "screenshots/FLOW-PRE-01-2-confirmacion.png"
+      ]
+    },
+    {
+      "id": "FLOW-PRE-03",
+      "title": "No se puede superar el límite de préstamos",
+      "status": "failed",
+      "video": "videos/FLOW-PRE-03.webm",
+      "screenshots": ["screenshots/FLOW-PRE-03-1-error.png"]
+    }
+  ]
+}

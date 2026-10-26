@@ -9,6 +9,9 @@ test-results/
 playwright-report/
 blob-report/
 evidence/
+# tools/evidence es código del pipeline, no evidencia generada
+!tools/evidence/
+!tools/__fixtures__/evidence/
 .stryker-tmp/
 .features-gen/
 .lighthouseci/
@@ -17,3 +20,4 @@ evidence/
 .env.*
 !.env.example
 .DS_Store
+.schemathesis/

@@ -1,0 +1,19 @@
+{
+  "version": "1.182.0",
+  "results": [
+    {
+      "check_id": "biblioteca.no-console-log",
+      "path": "backend/src/main.ts",
+      "start": { "line": 14, "col": 3, "offset": 412 },
+      "end": { "line": 14, "col": 40, "offset": 449 },
+      "extra": {
+        "message": "No uses console.log en src. Usa el Logger de NestJS.",
+        "severity": "WARNING",
+        "metadata": { "spec": "SPEC-ARCH-01" },
+        "lines": "requires login"
+      }
+    }
+  ],
+  "errors": [],
+  "paths": { "scanned": [] }
+}

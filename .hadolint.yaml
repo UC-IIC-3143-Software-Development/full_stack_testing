@@ -1,0 +1,18 @@
+# Configuración de hadolint (lint de Dockerfiles, etapa 2 del pipeline).
+# Falla con advertencias: así detecta, por ejemplo, una imagen que termina corriendo
+# como root (DL3002) o un apt-get sin limpiar.
+failure-threshold: warning
+
+ignored:
+  # Fijar la versión exacta de cada paquete apk rompe el build cada vez que Alpine
+  # publica un parche. Preferimos actualizar la imagen base con Dependabot.
+  - DL3018
+
+override:
+  info:
+    # La forma shell es necesaria en HEALTHCHECK para usar redirecciones y ||.
+    # La razón de DL3025 (que el proceso reciba las señales) aplica a CMD y
+    # ENTRYPOINT, que en este repo ya usan la forma JSON.
+    - DL3025
+    # node es un usuario que existe en la imagen base oficial de Node.
+    - DL3066

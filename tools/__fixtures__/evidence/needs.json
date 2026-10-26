@@ -1,0 +1,20 @@
+{
+  "cambios": { "result": "success", "outputs": { "backend": "true", "frontend": "true" } },
+  "secretos": { "result": "success", "outputs": {} },
+  "calidad-backend": { "result": "success", "outputs": {} },
+  "calidad-frontend": { "result": "success", "outputs": {} },
+  "contrato-openapi": { "result": "success", "outputs": {} },
+  "trazabilidad": { "result": "success", "outputs": {} },
+  "lint-infra": { "result": "success", "outputs": {} },
+  "semgrep": { "result": "success", "outputs": {} },
+  "codeql": { "result": "success", "outputs": {} },
+  "dependencias": { "result": "success", "outputs": {} },
+  "trivy-fs": { "result": "success", "outputs": {} },
+  "unit-backend": { "result": "success", "outputs": {} },
+  "unit-frontend": { "result": "success", "outputs": {} },
+  "integracion-backend": { "result": "success", "outputs": {} },
+  "e2e-frontend": { "result": "success", "outputs": {} },
+  "imagenes": { "result": "success", "outputs": {} },
+  "sistema": { "result": "success", "outputs": {} },
+  "dast": { "result": "failure", "outputs": {} }
+}

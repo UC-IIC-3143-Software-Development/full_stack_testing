@@ -1,0 +1,26 @@
+{
+  "@programName": "ZAP",
+  "@version": "2.17.0",
+  "@generated": "Mon, 2 Mar 2026 12:14:00",
+  "site": [
+    {
+      "@name": "http://localhost:3001",
+      "@host": "localhost",
+      "@port": "3001",
+      "@ssl": "false",
+      "alerts": [
+        {
+          "pluginid": "40018",
+          "alertRef": "40018",
+          "alert": "SQL Injection",
+          "name": "SQL Injection",
+          "riskcode": "3",
+          "confidence": "2",
+          "riskdesc": "High (Medium)",
+          "count": "1",
+          "instances": [{ "uri": "http://localhost:3001/api/books?q=%27", "method": "GET" }]
+        }
+      ]
+    }
+  ]
+}

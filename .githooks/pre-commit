@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Hook pre-commit del repo (inspirado en Talisman, libro p. 238).
+#
+# Detiene el commit ANTES de que un secreto llegue al historial de git, que es
+# donde ya es tarde: borrar el archivo en otro commit no lo saca del historial.
+# También revisa el formato de los archivos en stage para no gastar un run de CI.
+#
+# Instalación (una vez por clon):
+#   git config core.hooksPath .githooks
+# o bien: npm run hooks:install
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+# 1. Secretos en los cambios en stage
+if command -v gitleaks >/dev/null 2>&1
+then
+  # gitleaks 8.19 o superior. En versiones antiguas el equivalente es: gitleaks protect --staged
+  if ! gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml
+  then
+    echo "pre-commit: gitleaks encontró posibles secretos. Sácalos del stage antes de hacer commit." >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: gitleaks no está instalado, se omite la búsqueda de secretos (CI la hará igual)." >&2
+fi
+
+# 2. Formato (Prettier) de los archivos en stage, usando el Prettier de cada app o el de la raíz
+staged="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|mjs|cjs|json|css|ya?ml)$' || true)"
+if [ -z "$staged" ]
+then
+  exit 0
+fi
+
+failed=0
+for file in $staged
+do
+  dir="."
+  top="${file%%/*}"
+  if [ "$top" = "backend" ] || [ "$top" = "frontend" ]
+  then
+    dir="$top"
+  fi
+  prettier="$dir/node_modules/.bin/prettier"
+  if [ ! -x "$prettier" ]
+  then
+    prettier="./node_modules/.bin/prettier"
+  fi
+  if [ -x "$prettier" ] && ! "$prettier" --check --log-level warn "$file"
+  then
+    failed=1
+  fi
+done
+
+if [ "$failed" -ne 0 ]
+then
+  echo "pre-commit: hay archivos sin formato. Corre 'npm run format' en la app correspondiente." >&2
+  exit 1
+fi

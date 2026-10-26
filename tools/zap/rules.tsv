@@ -1,0 +1,33 @@
+# Reglas de OWASP ZAP para el baseline del frontend y el API scan del backend (etapa 9).
+# Formato: <id de regla><TAB><IGNORE|WARN|FAIL><TAB>(<nombre>)
+# Toda regla ignorada lleva su justificación en el comentario de arriba.
+# Lo que no aparece aquí queda como WARN: se informa en el PR pero no rompe el build.
+# tools/zap/check-alerts.mjs rompe el build si queda alguna alerta High que no esté ignorada.
+#
+# HSTS solo tiene sentido sobre HTTPS. En CI el stack corre en http://localhost.
+# En producción lo agrega el proxy con TLS, que está fuera del alcance de este repo.
+10035	IGNORE	(Strict-Transport-Security Header Not Set)
+# Los bundles minificados de Next.js contienen números que parecen timestamps Unix.
+# Son falsos positivos conocidos: no exponen información del servidor.
+10096	IGNORE	(Timestamp Disclosure - Unix)
+# Los bundles de Next.js y React incluyen palabras como "user", "select" o "debug" en
+# su código. ZAP las marca como comentarios sospechosos, pero no son comentarios del equipo.
+10027	IGNORE	(Information Disclosure - Suspicious Comments)
+# Solo informa que la app es una SPA moderna y que conviene usar el spider AJAX.
+10109	IGNORE	(Modern Web Application)
+# El API scan envía datos inválidos a propósito y la API responde 4xx según el contrato.
+# Que el servidor rechace datos inválidos es el comportamiento correcto, no una alerta.
+100000	IGNORE	(A Client Error response code was returned by the server)
+#
+# Reglas que se mantienen visibles a propósito (hallazgos reales para conversar en clase):
+10038	WARN	(Content Security Policy (CSP) Header Not Set)
+10020	WARN	(Missing Anti-clickjacking Header)
+10021	WARN	(X-Content-Type-Options Header Missing)
+10063	WARN	(Permissions Policy Header Not Set)
+#
+# Inyecciones: si aparecen, el build falla aunque ZAP las considere de riesgo medio.
+40012	FAIL	(Cross Site Scripting (Reflected))
+40014	FAIL	(Cross Site Scripting (Persistent))
+40018	FAIL	(SQL Injection)
+90019	FAIL	(Server Side Code Injection)
+90020	FAIL	(Remote OS Command Injection)

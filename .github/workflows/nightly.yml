@@ -1,0 +1,169 @@
+# Pruebas nocturnas: lo que vale la pena correr, pero no en cada PR.
+#
+# Mutation testing: cambia el código de producción (por ejemplo `>` por `>=`) y
+# revisa si algún test falla. Si ninguno falla, el mutante "sobrevive" y revela un
+# test que no verifica lo que creemos. Es muy efectivo, pero lento: ejecuta la
+# suite completa por cada mutante. El libro lo dice así: "Mutation testing, though
+# very effective, is time-consuming, so use it wisely" (Full Stack Testing, p. 116).
+# Por eso corre de noche y su reporte sirve para mejorar los tests, no para bloquear PR.
+#
+# Cross-browser: los PR prueban en Chromium. De noche se prueban los mismos flujos
+# en Firefox y WebKit (motor de Safari), libro cap. 6, p. 192.
+#
+# ZAP full scan: escaneo activo completo del frontend (spider + ataques). Tarda
+# bastante más que el baseline del PR, por eso es opcional y manual.
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      zap_full:
+        description: Ejecutar también el ZAP full scan (activo y lento)
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  mutacion-backend:
+    name: Mutation testing backend (Stryker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run test:mutation
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: mutacion-backend
+          path: backend/reports/mutation
+          if-no-files-found: ignore
+
+  mutacion-frontend:
+    name: Mutation testing frontend (Stryker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test:mutation
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: mutacion-frontend
+          path: frontend/reports/mutation
+          if-no-files-found: ignore
+
+  cross-browser:
+    name: Flujos en Firefox y WebKit (Playwright + MSW)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      options: --ipc=host
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # Requiere los proyectos flows-firefox y flows-webkit en frontend/playwright.config.ts,
+      # activos solo con E2E_CROSS_BROWSER=1 para no alargar el E2E de cada PR.
+      - name: Flujos de usuario en Firefox y WebKit
+        run: npm run test:e2e -- --project=flows-firefox --project=flows-webkit
+        env:
+          CI: 'true'
+          HOME: /root
+          E2E_CROSS_BROWSER: '1'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-cross-browser
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+
+  zap-full:
+    name: OWASP ZAP full scan del frontend (opcional)
+    if: github.event_name == 'workflow_dispatch' && inputs.zap_full
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Levantar el stack y sembrar datos
+        run: |
+          docker compose up -d --build --wait --wait-timeout 300
+          BASE_URL=http://localhost:3001 node tools/seed-stack.mjs
+      - name: ZAP full scan
+        run: |
+          mkdir -p reports/zap
+          cp tools/zap/rules.tsv reports/zap/
+          chmod -R a+rwX reports/zap
+          docker run --rm --network host -v "$PWD/reports/zap:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
+            -t http://localhost:3000 -c rules.tsv -m 5 \
+            -J zap-full.json -r zap-full.html -I
+      - name: Compuerta (alertas High)
+        run: node tools/zap/check-alerts.mjs reports/zap/zap-full.json
+      - name: Bajar el stack
+        if: always()
+        run: docker compose down -v
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: zap-full
+          path: |
+            reports/zap/*.json
+            reports/zap/*.html
+          if-no-files-found: ignore

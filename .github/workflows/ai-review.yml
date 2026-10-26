@@ -1,0 +1,101 @@
+# Revisión de código con IA basada en las specs del proyecto.
+#
+# No es un linter más: le entrega al agente las mismas reglas que usa el equipo
+# (constitución, arquitectura, specs de features y de capas) y le pide revisar el
+# diff contra ellas. Complementa a Semgrep y CodeQL (reglas fijas) con criterio:
+# tests huérfanos, mocks injustificados, tests duplicados entre capas, lógica en la
+# capa equivocada o riesgos de seguridad que no calzan con un patrón.
+#
+# Activación: crea el secreto ANTHROPIC_API_KEY en Settings, Secrets and variables, Actions.
+# Sin el secreto (o en PR desde forks, que no reciben secretos) el job termina en verde
+# con un aviso en el resumen del run.
+#
+# Libro Full Stack Testing, cap. 4, "Claude in GitHub Actions" (p. 139 a 143). El
+# ejemplo del libro usa los inputs allowed_tools y max_turns, que en la v1 de la
+# acción pasaron a claude_args.
+name: Revisión con IA
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions: {}
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  revision:
+    name: Revisión de código contra las specs (Claude)
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write # comentarios en línea y resumen en el PR
+    env:
+      # Los secretos no se pueden usar en un if: se traduce a una variable del job
+      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - name: Aviso si no hay API key
+        if: env.HAS_ANTHROPIC_KEY != 'true'
+        run: |
+          {
+            echo "### Revisión con IA omitida"
+            echo ""
+            echo "No existe el secreto ANTHROPIC_API_KEY (o el PR viene de un fork)."
+            echo "Para activarla, créalo en Settings, Secrets and variables, Actions."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Revisión con IA omitida: falta el secreto ANTHROPIC_API_KEY."
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Revisar el PR con Claude
+        if: env.HAS_ANTHROPIC_KEY == 'true'
+        uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Eres revisor de código del proyecto Biblioteca UC. El proyecto usa Spec Driven
+            Development: las specs son la fuente de verdad. Responde en español de Chile, con
+            tuteo, sin guiones largos ni punto y coma.
+
+            1. Lee primero, en este orden:
+               - specs/constitution.md (principios, en especial P4 política de tests y P5 seguridad)
+               - specs/architecture.md (capas y reglas ARCH-R1 a ARCH-R8)
+               - las specs de features en specs/features/ relacionadas con los archivos del diff
+               - el SPEC.md de cada carpeta de capa tocada (por ejemplo backend/src/loans/domain/SPEC.md)
+            2. Obtén el diff con `gh pr diff` y revisa SOLO lo que cambió.
+            3. Revisa contra las specs:
+               - Reglas de negocio: el código implementa la regla con ID tal como dice la spec.
+                 Si el PR agrega comportamiento que no está en ninguna spec, pídelo (P1).
+               - Arquitectura: imports que cruzan capas (domain que importa NestJS o TypeORM,
+                 presentation que usa repositorios, componentes que llaman fetch directo).
+               - Política de tests (P4): tests sin ID de regla en el título (huérfanos), más de
+                 6 tests por regla y capa, variantes del mismo caso en vez de particiones,
+                 mocks con jest.fn o vi.fn sin justificación, aserciones débiles (toBeDefined,
+                 toBeTruthy), esperas fijas (waitForTimeout), tests duplicados entre capas y
+                 oráculos que recalculan la lógica de producción.
+               - Contrato: cambios de API que no partieron por specs/api/openapi.yaml.
+               - Seguridad (OWASP Top 10): inyección, validación de entrada, secretos, datos
+                 sensibles en logs, dependencias nuevas innecesarias.
+            4. Comenta en línea con mcp__github_inline_comment__create_inline_comment solo los
+               problemas concretos, citando el ID de la regla o el principio (por ejemplo
+               "P4.3" o "ARCH-R3") y proponiendo el cambio.
+            5. Al final deja UN comentario de resumen con `gh pr comment` que tenga:
+               veredicto (aprobar, aprobar con cambios menores o pedir cambios), reglas de spec
+               afectadas, hallazgos por categoría y qué tests faltan o sobran.
+            No repitas lo que ya revisan las herramientas automáticas (formato, lint, tipos).
+            Si no encuentras problemas, dilo en el resumen en dos líneas.
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

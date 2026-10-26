@@ -1,0 +1,121 @@
+# Reglas Semgrep propias, ligadas a las specs del proyecto (etapa 3 del pipeline).
+#
+# Las reglas del registro (p/default, p/owasp-top-ten...) buscan vulnerabilidades
+# genéricas. Estas reglas convierten decisiones de NUESTRAS specs en chequeos
+# automáticos: si alguien (persona o agente de IA) rompe una regla de arquitectura,
+# el PR falla con un mensaje que cita la spec.
+#
+# Probar las reglas: cd .semgrep && semgrep --test .  (rules.ts y rules.tsx tienen los casos ruleid y ok)
+rules:
+  - id: biblioteca-usar-clock
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      No leas la hora del sistema en domain ni application. Recibe la hora desde el
+      puerto Clock (SPEC-LIB-02, LOAN-R6): así los tests usan un reloj fijo y el
+      estado OVERDUE es determinista.
+    metadata:
+      spec: specs/features/SPEC-LIB-02-prestamos.md
+      rule: LOAN-R6
+      category: correctness
+    paths:
+      include:
+        - 'backend/src/**/domain/**'
+        - 'backend/src/**/application/**'
+      exclude:
+        - '*.spec.ts'
+    pattern-either:
+      - pattern: Date.now()
+      - pattern: new Date()
+
+  - id: biblioteca-sql-concatenado
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      SQL armado con concatenación o template strings con interpolación. Usa
+      parámetros ($1, :nombre) o el query builder de TypeORM. Concatenar abre la
+      puerta a inyección SQL (OWASP A03).
+    metadata:
+      spec: specs/architecture.md
+      category: security
+      cwe: 'CWE-89: SQL Injection'
+      owasp: 'A03:2021 Injection'
+    paths:
+      include:
+        - 'backend/src/**'
+      exclude:
+        - '*.spec.ts'
+        - '*.int-spec.ts'
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query(`...${$X}...`, ...)
+          - pattern: $DB.query("..." + $X, ...)
+          - pattern: $DB.query($X + "...", ...)
+          - pattern: $QB.where(`...${$X}...`, ...)
+          - pattern: $QB.andWhere(`...${$X}...`, ...)
+          - pattern: $QB.orWhere(`...${$X}...`, ...)
+          - pattern: $QB.having(`...${$X}...`, ...)
+          - pattern: $QB.orderBy(`...${$X}...`, ...)
+      # Interpolar una constante del módulo en MAYÚSCULAS (por ejemplo SELECT_LOANS) es
+      # seguro: su valor no viene del usuario. Todo lo demás se reporta.
+      - metavariable-regex:
+          metavariable: $X
+          regex: '^(?:[^A-Z]|[A-Z].*[a-z])'
+
+  - id: biblioteca-fetch-en-componentes
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      Los componentes no llaman fetch directo (ARCH-R7). Usa un hook de la feature
+      que a su vez use el cliente tipado de shared/api, generado desde el OpenAPI.
+    metadata:
+      spec: specs/architecture.md
+      rule: ARCH-R7
+      category: maintainability
+    paths:
+      include:
+        - 'frontend/src/features/**/components/**'
+      exclude:
+        - '*.test.ts'
+        - '*.test.tsx'
+    pattern-either:
+      - pattern: fetch(...)
+      - pattern: window.fetch(...)
+      - pattern: axios.$METHOD(...)
+      - pattern: axios(...)
+
+  - id: biblioteca-no-dangerously-set-inner-html
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      dangerouslySetInnerHTML inserta HTML sin escapar y abre la puerta a XSS
+      (OWASP A03). Renderiza el texto con JSX normal, que React escapa solo.
+    metadata:
+      category: security
+      cwe: 'CWE-79: Cross-site Scripting'
+      owasp: 'A03:2021 Injection'
+    paths:
+      include:
+        - 'frontend/src/**'
+    pattern-either:
+      - pattern: <$EL dangerouslySetInnerHTML={$X} />
+      - pattern: '{dangerouslySetInnerHTML: $X}'
+
+  - id: biblioteca-no-console-log
+    languages: [typescript]
+    severity: ERROR
+    message: >-
+      No dejes console.log en el código de la aplicación. En el backend usa el Logger
+      de NestJS (queda con nivel y contexto) y en el frontend elimina el log antes de integrar.
+    metadata:
+      category: maintainability
+    paths:
+      include:
+        - 'backend/src/**'
+        - 'frontend/src/**'
+      exclude:
+        - '*.spec.ts'
+        - '*.int-spec.ts'
+        - '*.test.ts'
+        - '*.test.tsx'
+    pattern: console.log(...)

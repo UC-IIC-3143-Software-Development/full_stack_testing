@@ -1,0 +1,23 @@
+# Configuración de gitleaks (detección de secretos, etapa 1 del pipeline y hook pre-commit).
+#
+# Parte de las reglas por defecto de gitleaks (llaves de AWS, tokens de GitHub,
+# llaves privadas, etc.) y solo agrega excepciones explícitas y justificadas.
+# Constitución P5.1: ningún secreto en el repositorio.
+title = "Biblioteca UC"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Datos de prueba sintéticos: no son secretos reales"
+paths = [
+  '''^tools/__fixtures__/''',
+  '''^\.semgrep/rules\.tsx?$''',
+  '''(^|/)package-lock\.json$''',
+]
+
+[[allowlists]]
+description = "Credenciales de la base de datos local de desarrollo y CI (documentadas en specs/architecture.md)"
+regexes = [
+  '''postgres://biblioteca:biblioteca@''',
+]

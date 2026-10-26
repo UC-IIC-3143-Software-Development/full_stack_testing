@@ -1,0 +1,91 @@
+# Stack completo para pruebas de sistema, E2E @smoke y DAST (etapa 9 del pipeline).
+#
+#   docker compose up -d --build --wait     levanta todo y espera los healthchecks
+#   docker compose down -v                  baja todo y borra la base de datos
+#
+# Los puertos publicados se pueden cambiar con variables para no chocar con otros
+# servicios de tu máquina, por ejemplo: BACKEND_PORT=3101 FRONTEND_PORT=3100 docker compose up
+#
+# Para la evidencia del PR se fija el reloj del backend:
+#   CLOCK_FIXED_NOW=2026-03-02T12:00:00Z docker compose up -d --wait
+name: biblioteca-uc
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: biblioteca
+      POSTGRES_PASSWORD: biblioteca
+      POSTGRES_DB: biblioteca
+    ports:
+      - '127.0.0.1:${DB_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U biblioteca -d biblioteca']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  backend:
+    image: ${BACKEND_IMAGE:-biblioteca-backend:local}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      PORT: '3001'
+      DATABASE_URL: postgres://biblioteca:biblioteca@db:5432/biblioteca
+      CLOCK_FIXED_NOW: ${CLOCK_FIXED_NOW:-}
+    ports:
+      - '${BACKEND_PORT:-3001}:3001'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # node existe en cualquier imagen de Node, curl o wget no siempre
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-biblioteca-frontend:local}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # Next fija los rewrites de /api/* en el build: el destino es el servicio backend
+        BACKEND_URL: http://backend:3001
+    environment:
+      BACKEND_URL: http://backend:3001
+      NEXT_PUBLIC_API_MOCKING: disabled
+      # Docker define HOSTNAME con el id del contenedor y Next escucharía solo en esa IP
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
+    ports:
+      - '${FRONTEND_PORT:-3000}:3000'
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+
+volumes:
+  db-data:
