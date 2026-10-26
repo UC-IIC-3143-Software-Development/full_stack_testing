@@ -16,6 +16,14 @@ Then('veo el libro {string}', async ({ page }, title: string) => {
   await expect(bookCard(page, title)).toBeVisible()
 })
 
+Then('no veo el libro {string}', async ({ page }, title: string) => {
+  await expect(bookCard(page, title)).toHaveCount(0)
+})
+
+When('marco la casilla {string}', async ({ page }, label: string) => {
+  await page.getByRole('checkbox', { name: label, exact: true }).check()
+})
+
 Then('el libro {string} aparece como {string}', async ({ page }, title: string, badge: string) => {
   await expect(availabilityBadge(page, title)).toHaveText(badge)
 })

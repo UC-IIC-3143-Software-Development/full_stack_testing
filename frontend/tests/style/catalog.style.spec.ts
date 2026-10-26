@@ -28,3 +28,16 @@ test('[UI-CAT-3] el botón "Pedir prestado" deshabilitado se ve inactivo', async
   await expect(button).toHaveCSS('background-color', 'rgb(228, 231, 236)')
   await expect(button).toHaveCSS('cursor', 'not-allowed')
 })
+
+test('[UI-CAT-7] la casilla "Solo disponibles" muestra el foco al llegar con el teclado', async ({
+  page,
+}) => {
+  await page.getByRole('button', { name: 'Buscar', exact: true }).focus()
+  await page.keyboard.press('Tab')
+  const checkbox = page.getByRole('checkbox', { name: 'Solo disponibles' })
+  await expect(checkbox).toBeFocused()
+  // :focus-visible usa el token --color-focus (#6941C6) con 3 px.
+  await expect(checkbox).toHaveCSS('outline-style', 'solid')
+  await expect(checkbox).toHaveCSS('outline-width', '3px')
+  await expect(checkbox).toHaveCSS('outline-color', 'rgb(105, 65, 198)')
+})
