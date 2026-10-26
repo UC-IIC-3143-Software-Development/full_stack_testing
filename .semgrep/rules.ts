@@ -30,6 +30,21 @@ export async function searchWrong(db: DataSource, q: string) {
   return db.query(`SELECT * FROM book WHERE title ILIKE '%${q}%'`)
 }
 
+export async function searchGenericWrong(db: DataSource, email: string) {
+  // ruleid: biblioteca-sql-concatenado
+  return db.query<{ id: string }[]>(`SELECT id FROM loans WHERE borrower_email = '${email}'`, [])
+}
+
+export async function overdueWrong(db: DataSource, email: string) {
+  // ruleid: biblioteca-sql-concatenado
+  const rows = await db.query<{ id: string }[]>(
+    `SELECT id FROM loans
+     WHERE borrower_email = '${email}'`,
+    [],
+  )
+  return rows
+}
+
 export async function searchConcatWrong(db: DataSource, q: string) {
   // ruleid: biblioteca-sql-concatenado
   return db.query("SELECT * FROM book WHERE title = '" + q)
