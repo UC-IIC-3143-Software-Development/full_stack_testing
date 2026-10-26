@@ -3,8 +3,7 @@
 Proyecto de ejemplo de la clase de **IIC3143 Desarrollo de Software** (UC). Es un monorepo
 con una app pequeña, la **Biblioteca UC** (catálogo de libros, préstamos y renovación), construida con
 **Spec Driven Development** y probada en todas sus capas por un pipeline de CI con
-seguridad integrada. Está basado en *Full Stack Testing* (Gayathri Mohan, 2.ª ed.,
-O'Reilly 2026).
+seguridad integrada.
 
 La pregunta que guía el proyecto: **¿cómo aprovechar la IA para escribir y revisar
 tests sin terminar con miles de tests que no valen la pena?** La respuesta tiene tres
@@ -125,38 +124,38 @@ variantes del mismo caso.
 
 ## Tipos de prueba
 
-| Tipo | Qué verifica | Herramienta | Dónde | Etapa | Libro |
-| --- | --- | --- | --- | :---: | --- |
-| Unitario de dominio | Reglas de negocio puras (ISBN, préstamo, estado) sin mocks | Jest | `backend/src/*/domain/*.spec.ts` | 5 | p. 67 y 103 |
-| Unitario de aplicación | Casos de uso con repositorios en memoria y fecha fija de prueba | Jest + fakes | `backend/src/*/application/*.spec.ts` | 5 | p. 103 |
-| Integración con base real | Repositorios TypeORM, índice único, `CHECK`, concurrencia | Testcontainers (PostgreSQL) | `backend/src/*/infrastructure/*.int-spec.ts` | 6 | p. 179 |
-| Contrato de la API | Respuesta HTTP real (controller a base de datos) contra el OpenAPI | supertest + Testcontainers | `backend/test/contract/` | 6 | p. 70 y 107 |
-| Unitario de frontend | Funciones puras: ISBN, fechas `dd-mm-aaaa`, etiquetas de estado | Vitest | `frontend/src/shared/domain/` | 5 | p. 188 |
-| Componentes | Render e interacción con la API simulada | Vitest + Testing Library + MSW | `frontend/src/features/*/components/` | 5 | p. 189 |
-| Contrato de mocks | Los handlers de MSW cumplen el OpenAPI | Vitest + Ajv | `frontend/src/mocks/` | 5 | p. 107 |
-| Flujos E2E (BDD) | Escenarios Gherkin de `specs/flows/` contra Next + MSW, sin backend | Playwright + playwright-bdd | `frontend/tests/e2e/steps/` | 7 | p. 87 y 191 |
-| Regresión visual | La pantalla se ve igual que la referencia aprobada | Playwright `toHaveScreenshot` | `frontend/tests/visual/` | 7 | p. 191 y 195 |
-| Estilos | La insignia es verde `#1E7F3C` o roja `#B42318` según la spec | Playwright `toHaveCSS` | `frontend/tests/style/` | 7 | p. 185 |
-| Layout | Grilla de 3 columnas en escritorio, 1 en móvil, insignia arriba a la derecha | Playwright + `boundingBox` | `frontend/tests/layout/` | 7 | p. 185 |
-| Accesibilidad | Reglas WCAG automatizables | axe-core con Playwright | `frontend/tests/a11y/` | 7 | p. 297 |
-| Arquitectura | Las capas respetan sus dependencias (ARCH-R1 a ARCH-R8) | dependency-cruiser | `npm run test:arch` | 2 | p. 315 |
-| Lint del contrato | El OpenAPI está completo y no rompe clientes | Spectral, oasdiff | `.spectral.yaml` | 2 | p. 70 |
-| Trazabilidad | Reglas con tests, sin huérfanos, dentro del presupuesto | `tools/spec-trace.mjs` | `tools/` | 2 | p. 72 y 114 |
-| Calidad de código | Bugs, vulnerabilidades, code smells (código difícil de mantener), cobertura y duplicación de todo el repo, con una quality gate que aprueba o reprueba | SonarQube Community efímero (contenedor temporal en el runner) | `sonar-project.properties`, `tools/sonarqube/` | 5 | complementa p. 315 a 317 |
-| Secretos | Credenciales en el código o el historial | gitleaks (hook y CI) | `.githooks/`, `.gitleaks.toml` | 1 | p. 238 |
-| SAST | Código vulnerable y violaciones de las specs | Semgrep, CodeQL | `.semgrep/` | 3 | p. 225 |
-| SCA | Dependencias con vulnerabilidades conocidas | dependency review, npm audit, Trivy fs | `ci.yml` | 4 | p. 216 y 226 |
-| Contenedores y SBOM | Vulnerabilidades de la imagen e inventario de componentes | Trivy image, CycloneDX | `ci.yml` | 8 | p. 226 |
-| Smoke E2E del sistema | Los flujos `@smoke` contra el stack real con PostgreSQL | Playwright | `specs/flows/*.feature` | 9 | p. 128 |
-| Smoke de la API | Todos los endpoints del contrato responden en el stack real | `tools/api-smoke.mjs` | `tools/` | 9 | p. 128 |
-| Fuzzing desde el contrato | Miles de requests generadas desde el OpenAPI buscando respuestas fuera del contrato | Schemathesis | `specs/api/openapi.yaml` | 9 | complementa p. 107 |
-| Rendimiento | p95 menor a 500 ms y menos de 1 % de errores | k6 | `tools/perf/k6-smoke.js` | 9 | p. 245 y 250 |
-| Calidad web | Rendimiento, accesibilidad, buenas prácticas y SEO | Lighthouse CI | `frontend/lighthouserc.json` | 9 | p. 270 y 295 |
-| DAST | Ataques a la app corriendo (cabeceras, inyección, XSS) | OWASP ZAP | `tools/zap/` | 9 | p. 227 y 229 |
-| Mutation testing | Tests que no detectan cambios en el código | Stryker | `nightly.yml` | noche | p. 116 |
-| Cross-browser | Los flujos en Firefox y WebKit | Playwright | `nightly.yml` | noche | p. 192 |
-| Revisión con IA | El diff respeta specs, capas y política de tests | Claude (claude-code-action) | `ai-review.yml` | PR | p. 139 |
-| Propuesta de tests con IA | Plan de casos y tests de contrato para una operación | Claude (claude-code-action) | `ai-generate-tests.yml` | manual | p. 139 a 143 |
+| Tipo | Qué verifica | Herramienta | Dónde | Etapa |
+| --- | --- | --- | --- | :---: |
+| Unitario de dominio | Reglas de negocio puras (ISBN, préstamo, estado) sin mocks | Jest | `backend/src/*/domain/*.spec.ts` | 5 |
+| Unitario de aplicación | Casos de uso con repositorios en memoria y fecha fija de prueba | Jest + fakes | `backend/src/*/application/*.spec.ts` | 5 |
+| Integración con base real | Repositorios TypeORM, índice único, `CHECK`, concurrencia | Testcontainers (PostgreSQL) | `backend/src/*/infrastructure/*.int-spec.ts` | 6 |
+| Contrato de la API | Respuesta HTTP real (controller a base de datos) contra el OpenAPI | supertest + Testcontainers | `backend/test/contract/` | 6 |
+| Unitario de frontend | Funciones puras: ISBN, fechas `dd-mm-aaaa`, etiquetas de estado | Vitest | `frontend/src/shared/domain/` | 5 |
+| Componentes | Render e interacción con la API simulada | Vitest + Testing Library + MSW | `frontend/src/features/*/components/` | 5 |
+| Contrato de mocks | Los handlers de MSW cumplen el OpenAPI | Vitest + Ajv | `frontend/src/mocks/` | 5 |
+| Flujos E2E (BDD) | Escenarios Gherkin de `specs/flows/` contra Next + MSW, sin backend | Playwright + playwright-bdd | `frontend/tests/e2e/steps/` | 7 |
+| Regresión visual | La pantalla se ve igual que la referencia aprobada | Playwright `toHaveScreenshot` | `frontend/tests/visual/` | 7 |
+| Estilos | La insignia es verde `#1E7F3C` o roja `#B42318` según la spec | Playwright `toHaveCSS` | `frontend/tests/style/` | 7 |
+| Layout | Grilla de 3 columnas en escritorio, 1 en móvil, insignia arriba a la derecha | Playwright + `boundingBox` | `frontend/tests/layout/` | 7 |
+| Accesibilidad | Reglas WCAG automatizables | axe-core con Playwright | `frontend/tests/a11y/` | 7 |
+| Arquitectura | Las capas respetan sus dependencias (ARCH-R1 a ARCH-R8) | dependency-cruiser | `npm run test:arch` | 2 |
+| Lint del contrato | El OpenAPI está completo y no rompe clientes | Spectral, oasdiff | `.spectral.yaml` | 2 |
+| Trazabilidad | Reglas con tests, sin huérfanos, dentro del presupuesto | `tools/spec-trace.mjs` | `tools/` | 2 |
+| Calidad de código | Bugs, vulnerabilidades, code smells (código difícil de mantener), cobertura y duplicación de todo el repo, con una quality gate que aprueba o reprueba | SonarQube Community efímero (contenedor temporal en el runner) | `sonar-project.properties`, `tools/sonarqube/` | 5 |
+| Secretos | Credenciales en el código o el historial | gitleaks (hook y CI) | `.githooks/`, `.gitleaks.toml` | 1 |
+| SAST | Código vulnerable y violaciones de las specs | Semgrep, CodeQL | `.semgrep/` | 3 |
+| SCA | Dependencias con vulnerabilidades conocidas | dependency review, npm audit, Trivy fs | `ci.yml` | 4 |
+| Contenedores y SBOM | Vulnerabilidades de la imagen e inventario de componentes | Trivy image, CycloneDX | `ci.yml` | 8 |
+| Smoke E2E del sistema | Los flujos `@smoke` contra el stack real con PostgreSQL | Playwright | `specs/flows/*.feature` | 9 |
+| Smoke de la API | Todos los endpoints del contrato responden en el stack real | `tools/api-smoke.mjs` | `tools/` | 9 |
+| Fuzzing desde el contrato | Miles de requests generadas desde el OpenAPI buscando respuestas fuera del contrato | Schemathesis | `specs/api/openapi.yaml` | 9 |
+| Rendimiento | p95 menor a 500 ms y menos de 1 % de errores | k6 | `tools/perf/k6-smoke.js` | 9 |
+| Calidad web | Rendimiento, accesibilidad, buenas prácticas y SEO | Lighthouse CI | `frontend/lighthouserc.json` | 9 |
+| DAST | Ataques a la app corriendo (cabeceras, inyección, XSS) | OWASP ZAP | `tools/zap/` | 9 |
+| Mutation testing | Tests que no detectan cambios en el código | Stryker | `nightly.yml` | noche |
+| Cross-browser | Los flujos en Firefox y WebKit | Playwright | `nightly.yml` | noche |
+| Revisión con IA | El diff respeta specs, capas y política de tests | Claude (claude-code-action) | `ai-review.yml` | PR |
+| Propuesta de tests con IA | Plan de casos y tests de contrato para una operación | Claude (claude-code-action) | `ai-generate-tests.yml` | manual |
 
 **Mock server sin backend.** El frontend se prueba completo (componentes y E2E) con MSW,
 que intercepta las llamadas a `/api` en el navegador y en Node. Los handlers se validan
@@ -225,7 +224,7 @@ Los PR desde forks no reciben secretos, así que tampoco ejecutan la revisión.
 ## Seguridad en el repositorio
 
 - `git config core.hooksPath .githooks` activa el hook que corre gitleaks y Prettier
-  antes de cada commit (inspirado en Talisman, libro p. 238).
+  antes de cada commit (inspirado en herramientas como Talisman).
 - Todas las acciones de GitHub están fijadas por SHA, cada job tiene permisos mínimos y
   zizmor revisa los workflows en cada PR. Detalle en [`docs/pipeline.md`](docs/pipeline.md).
 - Dependabot actualiza npm, acciones y Docker con 7 días de espera para no adoptar una

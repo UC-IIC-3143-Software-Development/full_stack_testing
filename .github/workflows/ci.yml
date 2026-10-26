@@ -14,7 +14,6 @@
 # desplegar nada. Segundo ciclo (etapas 8 y 9): la aplicación construida y corriendo.
 # La etapa 8 espera a la etapa 2 y a los unitarios de la etapa 5 en verde: el ciclo lento no
 # parte si el rápido falla. SonarQube (también etapa 5) corre en paralelo y bloquea en Resultado.
-# Libro Full Stack Testing, cap. 4, p. 126 a 128.
 name: CI
 
 on:

@@ -3,7 +3,7 @@
 // No es una prueba de carga: son 5 usuarios virtuales durante 20 segundos contra
 // el stack real. Sirve para detectar regresiones gruesas (una consulta sin índice,
 // un N+1) antes de integrar. Las pruebas de carga y estrés de verdad van en otro
-// pipeline con un ambiente dedicado (libro, cap. 8, p. 245 a 250).
+// pipeline con un ambiente dedicado.
 //
 // Umbrales (si no se cumplen, k6 termina con código distinto de 0):
 //   - p95 de la duración de las solicitudes menor a 500 ms

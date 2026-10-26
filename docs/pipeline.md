@@ -1,15 +1,14 @@
 # Pipeline de CI con DevSecOps
 
 Este documento explica el pipeline de `.github/workflows/ci.yml`: qué corre en cada
-etapa, qué detecta cada herramienta, por qué está en ese lugar y dónde aparece en el
-libro *Full Stack Testing* (Gayathri Mohan, 2.ª ed., O'Reilly 2026).
+etapa, qué detecta cada herramienta y por qué está en ese lugar.
 
 Solo hay **integración continua** (CI). No hay despliegue continuo (CD): el pipeline
 termina cuando el PR tiene toda la evidencia para decidir si se integra a `main`.
 
 ## Idea central: dos ciclos de feedback
 
-El libro propone separar las pruebas en dos ciclos (cap. 4, p. 126 a 128):
+Las pruebas se separan en dos ciclos:
 
 1. **Ciclo rápido** sobre el código estático: lint, tipos, seguridad estática y tests
    que no necesitan desplegar nada (unitarios, integración con contenedores, E2E con
@@ -71,26 +70,26 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 
 ## Etapas en detalle
 
-| Etapa | Job | Herramientas | Qué detecta | Falla si | Libro |
-| --- | --- | --- | --- | --- | --- |
-| 0 | `cambios` | dorny/paths-filter | Qué apps tocó el PR | nunca | cap. 4 |
-| 1 | `secretos` | gitleaks (CLI en Docker) | Llaves, tokens y contraseñas en cualquier commit | hay un hallazgo | p. 226 y 238 |
-| 2 | `calidad-backend`, `calidad-frontend` | ESLint, Prettier, `tsc`, dependency-cruiser | Errores de estilo y tipos, imports que rompen las capas (ARCH-R1 a ARCH-R8) | cualquier error | p. 315 a 317 |
-| 2 | `contrato-openapi` | Spectral, oasdiff | Contrato incompleto o inconsistente, cambios que rompen clientes | error de Spectral o cambio breaking | p. 70 y 107 |
-| 2 | `trazabilidad` | `tools/spec-trace.mjs`, tests de tools | Reglas sin tests, tests huérfanos, IDs inexistentes, más de 6 tests por regla y capa | cualquiera de esos casos | p. 72 y 114 |
-| 2 | `lint-infra` | hadolint, actionlint (con shellcheck), zizmor | Dockerfiles inseguros, workflows con errores o inyección de comandos | advertencia o hallazgo | p. 317 |
-| 3 | `semgrep` | Semgrep `p/default`, `p/typescript`, `p/nodejs`, `p/owasp-top-ten` y `.semgrep/rules.yml` | Patrones vulnerables y violaciones de nuestras specs (reloj, SQL, fetch, XSS, console.log) | hallazgo de severidad ERROR | p. 225 |
-| 3 | `codeql` | CodeQL `security-extended` | Flujos de datos peligrosos (de la entrada a una consulta, por ejemplo) | nunca: es informativo y deja los hallazgos en la pestaña Security | p. 225 |
-| 4 | `dependencias` | dependency review, `npm audit --omit=dev` | Dependencias nuevas o actuales con vulnerabilidades conocidas | npm audit con severidad high o mayor. Dependency review es informativo hasta activar Dependency graph en el repo | p. 216 y 226 |
-| 4 | `trivy-fs` | Trivy fs | Vulnerabilidades en lockfiles, secretos y misconfiguraciones | secreto o CRITICAL con parche | p. 226 |
-| 5 | `unit-backend`, `unit-frontend` | Jest, Vitest, Testing Library, MSW | Reglas de negocio y componentes, sin mocks (fakes en memoria) | un test falla | p. 67 y 103 |
-| 5 | `sonarqube` | SonarQube Community en un contenedor temporal, sonar-scanner-cli, `tools/sonarqube/run.mjs` | Bugs, vulnerabilidades, code smells, security hotspots, cobertura y duplicación de todo el repo ([detalle](#sonarqube-efímero-etapa-5)) | la quality gate falla | complementa p. 315 a 317 |
-| 6 | `integracion-backend` | Jest + Testcontainers (PostgreSQL) + supertest | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI | un test falla | p. 179 |
-| 7 | `e2e-frontend` | Playwright + playwright-bdd + MSW | Flujos de usuario, regresión visual, colores, posición, accesibilidad | un test falla | p. 183 a 195 |
-| 8 | `imagenes` | Docker Compose, Trivy image, CycloneDX | Vulnerabilidades y secretos dentro de la imagen, SBOM | secreto o CRITICAL con parche | p. 226 |
-| 9 | `sistema` | seed, Playwright `@smoke`, `tools/api-smoke.mjs`, Schemathesis, k6, Lighthouse CI | El sistema completo responde, el backend cumple el contrato con datos generados, rendimiento y calidad web | un test falla o no se cumplen los umbrales | p. 128, 250 y 270 |
-| 9 | `dast` | OWASP ZAP baseline y API scan | Cabeceras faltantes, inyección, XSS en la app corriendo | alerta High o regla FAIL | p. 227 y 229 |
-| 10 | `evidencia` | `tools/evidence/*` | Nada: resume todo en el PR | nunca bloquea | p. 121 |
+| Etapa | Job | Herramientas | Qué detecta | Falla si |
+| --- | --- | --- | --- | --- |
+| 0 | `cambios` | dorny/paths-filter | Qué apps tocó el PR | nunca |
+| 1 | `secretos` | gitleaks (CLI en Docker) | Llaves, tokens y contraseñas en cualquier commit | hay un hallazgo |
+| 2 | `calidad-backend`, `calidad-frontend` | ESLint, Prettier, `tsc`, dependency-cruiser | Errores de estilo y tipos, imports que rompen las capas (ARCH-R1 a ARCH-R8) | cualquier error |
+| 2 | `contrato-openapi` | Spectral, oasdiff | Contrato incompleto o inconsistente, cambios que rompen clientes | error de Spectral o cambio breaking |
+| 2 | `trazabilidad` | `tools/spec-trace.mjs`, tests de tools | Reglas sin tests, tests huérfanos, IDs inexistentes, más de 6 tests por regla y capa | cualquiera de esos casos |
+| 2 | `lint-infra` | hadolint, actionlint (con shellcheck), zizmor | Dockerfiles inseguros, workflows con errores o inyección de comandos | advertencia o hallazgo |
+| 3 | `semgrep` | Semgrep `p/default`, `p/typescript`, `p/nodejs`, `p/owasp-top-ten` y `.semgrep/rules.yml` | Patrones vulnerables y violaciones de nuestras specs (reloj, SQL, fetch, XSS, console.log) | hallazgo de severidad ERROR |
+| 3 | `codeql` | CodeQL `security-extended` | Flujos de datos peligrosos (de la entrada a una consulta, por ejemplo) | nunca: es informativo y deja los hallazgos en la pestaña Security |
+| 4 | `dependencias` | dependency review, `npm audit --omit=dev` | Dependencias nuevas o actuales con vulnerabilidades conocidas | npm audit con severidad high o mayor. Dependency review es informativo hasta activar Dependency graph en el repo |
+| 4 | `trivy-fs` | Trivy fs | Vulnerabilidades en lockfiles, secretos y misconfiguraciones | secreto o CRITICAL con parche |
+| 5 | `unit-backend`, `unit-frontend` | Jest, Vitest, Testing Library, MSW | Reglas de negocio y componentes, sin mocks (fakes en memoria) | un test falla |
+| 5 | `sonarqube` | SonarQube Community en un contenedor temporal, sonar-scanner-cli, `tools/sonarqube/run.mjs` | Bugs, vulnerabilidades, code smells, security hotspots, cobertura y duplicación de todo el repo ([detalle](#sonarqube-efímero-etapa-5)) | la quality gate falla |
+| 6 | `integracion-backend` | Jest + Testcontainers (PostgreSQL) + supertest | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI | un test falla |
+| 7 | `e2e-frontend` | Playwright + playwright-bdd + MSW | Flujos de usuario, regresión visual, colores, posición, accesibilidad | un test falla |
+| 8 | `imagenes` | Docker Compose, Trivy image, CycloneDX | Vulnerabilidades y secretos dentro de la imagen, SBOM | secreto o CRITICAL con parche |
+| 9 | `sistema` | seed, Playwright `@smoke`, `tools/api-smoke.mjs`, Schemathesis, k6, Lighthouse CI | El sistema completo responde, el backend cumple el contrato con datos generados, rendimiento y calidad web | un test falla o no se cumplen los umbrales |
+| 9 | `dast` | OWASP ZAP baseline y API scan | Cabeceras faltantes, inyección, XSS en la app corriendo | alerta High o regla FAIL |
+| 10 | `evidencia` | `tools/evidence/*` | Nada: resume todo en el PR | nunca bloquea |
 
 ## Glosario DevSecOps (para la diapositiva)
 
@@ -306,9 +305,8 @@ PR cerrados (por ejemplo con un workflow programado).
 
 **¿Por qué mutation testing no corre en cada PR?** Stryker modifica el código (por
 ejemplo cambia `>` por `>=`) y ejecuta la suite completa por cada mutante. Con cientos
-de mutantes, tarda varias veces lo que tarda la suite normal. El libro lo resume así:
-"Mutation testing, though very effective, is time-consuming, so use it wisely" (p. 116).
-De noche no retrasa a nadie y su reporte muestra qué tests no verifican lo que creemos.
+de mutantes, tarda varias veces lo que tarda la suite normal. Es muy efectivo, pero caro:
+conviene usarlo con criterio. De noche no retrasa a nadie y su reporte muestra qué tests no verifican lo que creemos.
 
 ## Trunk based development vs Git Flow
 
@@ -340,8 +338,8 @@ De noche no retrasa a nadie y su reporte muestra qué tests no verifican lo que 
 | Cuándo conviene | software con versiones instaladas y varias versiones con soporte | servicios web con despliegues frecuentes |
 
 Este repo usa **trunk based development** (constitución P6): ramas cortas, PR con
-evidencia y `main` siempre verde. El libro advierte que una rama de feature de larga
-vida es un antipatrón (p. 122). Las métricas DORA (p. 144) miden justamente la
+evidencia y `main` siempre verde. Una rama de feature de larga vida es un antipatrón:
+acumula diferencias y se integra con dolor. Las métricas DORA miden justamente la
 frecuencia de despliegue y el tiempo desde el commit hasta producción, y ambas mejoran
 cuando se integra en pasos chicos.
 
