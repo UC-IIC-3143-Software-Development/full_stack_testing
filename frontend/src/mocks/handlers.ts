@@ -200,6 +200,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         loanedAt: loanedAt.toISOString(),
         dueAt: dueAt.toISOString(),
         returnedAt: null,
+        renewalCount: 0,
       }
       store.write({
         books: state.books.map((b) =>

@@ -1,7 +1,7 @@
 // Pasos de specs/flows/prestamos.feature.
 import { expect, type Page } from '@playwright/test'
 import { Given, Then, When } from '../fixtures'
-import { bookCard, loanItem, openCatalog, searchLoans } from '../../support/ui'
+import { bookCard, loanDueDate, loanItem, openCatalog, searchLoans } from '../../support/ui'
 
 /**
  * Prepara el estado llamando a la API DESDE la página (fetch dentro de page.evaluate).
@@ -83,3 +83,13 @@ Then(
     await expect(loanItem(page, title).getByText(status, { exact: true })).toBeVisible()
   },
 )
+
+When('renuevo {string}', async ({ page }, title: string) => {
+  await loanItem(page, title)
+    .getByRole('button', { name: /renovar/i })
+    .click()
+})
+
+Then('el préstamo de {string} vence el {string}', async ({ page }, title: string, date: string) => {
+  await expect(loanDueDate(page, title)).toHaveText(date)
+})

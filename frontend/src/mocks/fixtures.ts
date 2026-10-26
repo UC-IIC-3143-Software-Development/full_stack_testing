@@ -78,6 +78,7 @@ export function createSeedState(): MockState {
         loanedAt: '2026-02-01T15:00:00.000Z',
         dueAt: '2026-02-15T15:00:00.000Z',
         returnedAt: null,
+        renewalCount: 0,
       },
       {
         id: '0a7d3b52-1c4e-4f8a-9b6d-000000000102',
@@ -87,6 +88,7 @@ export function createSeedState(): MockState {
         loanedAt: '2026-02-20T14:00:00.000Z',
         dueAt: '2026-03-06T14:00:00.000Z',
         returnedAt: null,
+        renewalCount: 0,
       },
       {
         id: '0a7d3b52-1c4e-4f8a-9b6d-000000000103',
@@ -96,6 +98,7 @@ export function createSeedState(): MockState {
         loanedAt: '2026-01-05T13:00:00.000Z',
         dueAt: '2026-01-19T13:00:00.000Z',
         returnedAt: '2026-01-15T16:30:00.000Z',
+        renewalCount: 0,
       },
     ],
   }

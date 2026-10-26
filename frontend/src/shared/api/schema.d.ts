@@ -116,6 +116,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/loans/{loanId}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renueva un préstamo por 7 días
+         * @description Suma 7 días a dueAt e incrementa renewalCount (RENEW-R1). Solo una renovación por
+         *     préstamo (RENEW-R2) y solo si el préstamo está al día y no se ha devuelto (RENEW-R3).
+         *     Reglas en `specs/features/SPEC-LIB-03-renovacion.md`.
+         */
+        post: operations["renewLoan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -176,6 +198,11 @@ export interface components {
             /** Format: date-time */
             returnedAt: string | null;
             status: components["schemas"]["LoanStatus"];
+            /**
+             * @description Veces que se renovó el préstamo (RENEW-R2).
+             * @example 0
+             */
+            renewalCount: number;
         };
         /**
          * @description ACTIVE si no se ha devuelto y no está vencido, OVERDUE si no se ha devuelto
@@ -207,7 +234,7 @@ export interface components {
             message: string;
         };
         /** @enum {string} */
-        ErrorCode: "VALIDATION_ERROR" | "BOOK_NOT_FOUND" | "LOAN_NOT_FOUND" | "ISBN_ALREADY_EXISTS" | "NO_COPIES_AVAILABLE" | "LOAN_LIMIT_REACHED" | "DUPLICATE_LOAN" | "ALREADY_RETURNED";
+        ErrorCode: "VALIDATION_ERROR" | "BOOK_NOT_FOUND" | "LOAN_NOT_FOUND" | "ISBN_ALREADY_EXISTS" | "NO_COPIES_AVAILABLE" | "LOAN_LIMIT_REACHED" | "DUPLICATE_LOAN" | "ALREADY_RETURNED" | "RENEWAL_LIMIT_REACHED" | "LOAN_OVERDUE";
     };
     responses: {
         /** @description La solicitud no cumple el contrato */
@@ -509,6 +536,49 @@ export interface operations {
                      *       "status": 409,
                      *       "code": "ALREADY_RETURNED",
                      *       "detail": "El préstamo ya fue devuelto"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    renewLoan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del préstamo. */
+                loanId: components["parameters"]["LoanId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Préstamo renovado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Loan"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFound"];
+            /** @description No se puede renovar: ya se renovó (RENEW-R2), está vencido o ya se devolvió (RENEW-R3). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "about:blank",
+                     *       "title": "Conflict",
+                     *       "status": 409,
+                     *       "code": "RENEWAL_LIMIT_REACHED",
+                     *       "detail": "El préstamo ya fue renovado"
                      *     }
                      */
                     "application/problem+json": components["schemas"]["Problem"];

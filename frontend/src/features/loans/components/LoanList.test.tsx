@@ -1,6 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
+import { BOOK_IDS, type StoredLoan } from '@/mocks/fixtures'
+import { mockStore, server } from '@/mocks/node'
 import { LoanList } from './LoanList'
 
 // carla@uc.cl tiene en el mock server un préstamo de cada estado (src/mocks/fixtures.ts),
@@ -9,6 +12,41 @@ function loanItem(title: string) {
   return screen
     .getAllByRole('listitem')
     .find((item) => within(item).queryByRole('heading', { name: title }))!
+}
+
+/** Fecha que acompaña al término "Devolver hasta" en la lista de fechas del préstamo. */
+function dueDate(title: string) {
+  const pair = within(loanItem(title)).getByText('Devolver hasta').parentElement!
+  return within(pair).getByRole('definition').textContent
+}
+
+async function showCarlaLoans() {
+  render(<LoanList email="carla@uc.cl" />)
+  await screen.findByRole('heading', { name: 'Préstamos de carla@uc.cl' })
+}
+
+/** server.use() reemplaza el handler solo en este test: así forzamos cada 409 de renewLoan. */
+function respondToRenewWithConflict(code: string) {
+  server.use(
+    http.post('*/api/loans/:loanId/renew', () =>
+      HttpResponse.json(
+        { type: 'about:blank', title: 'Conflict', status: 409, code, detail: code },
+        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    ),
+  )
+}
+
+/** Un préstamo activo de carla@uc.cl que ya se renovó: 14 días más 7 de la renovación. */
+const RENEWED_LOAN: StoredLoan = {
+  id: '0a7d3b52-1c4e-4f8a-9b6d-000000000104',
+  bookId: BOOK_IDS.cienAnos,
+  bookTitle: 'Cien años de soledad',
+  borrowerEmail: 'carla@uc.cl',
+  loanedAt: '2026-02-25T12:00:00.000Z',
+  dueAt: '2026-03-18T12:00:00.000Z',
+  returnedAt: null,
+  renewalCount: 1,
 }
 
 describe('LoanList', () => {
@@ -43,6 +81,69 @@ describe('LoanList', () => {
     render(<LoanList email="carla@uc.cl" />)
     await screen.findByRole('heading', { name: 'Préstamos de carla@uc.cl' })
     expect(within(loanItem('Pedro Páramo')).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(loanItem('La casa de los espíritus')).getByRole('button')).toBeEnabled()
+    expect(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /devolver/i }),
+    ).toBeEnabled()
+  })
+
+  it('[UI-RENEW-1] solo los préstamos activos sin renovar ofrecen "Renovar"', async () => {
+    const state = mockStore.read()
+    mockStore.write({ ...state, loans: [...state.loans, RENEWED_LOAN] })
+    await showCarlaLoans()
+
+    const rows = screen.getAllByRole('listitem').map((item) => ({
+      title: within(item).getByRole('heading').textContent,
+      status: within(item).getByText(/^(Activo|Vencido|Devuelto)$/).textContent,
+      renew: within(item).queryByRole('button', { name: /renovar/i }) !== null,
+    }))
+    expect(rows).toEqual([
+      { title: 'Cien años de soledad', status: 'Activo', renew: false },
+      { title: 'La casa de los espíritus', status: 'Activo', renew: true },
+      { title: 'Ficciones', status: 'Vencido', renew: false },
+      { title: 'Pedro Páramo', status: 'Devuelto', renew: false },
+    ])
+  })
+
+  it('[UI-RENEW-1] "Renovar" suma 7 días a la fecha de devolución sin recargar y desaparece', async () => {
+    const user = userEvent.setup()
+    await showCarlaLoans()
+    expect(dueDate('La casa de los espíritus')).toBe('06-03-2026')
+
+    await user.click(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /renovar/i }),
+    )
+
+    await waitFor(() => expect(dueDate('La casa de los espíritus')).toBe('13-03-2026'))
+    const item = within(loanItem('La casa de los espíritus'))
+    expect(item.queryByRole('button', { name: /renovar/i })).not.toBeInTheDocument()
+    expect(item.getByRole('button', { name: /devolver/i })).toBeEnabled()
+  })
+
+  it('[UI-RENEW-2] RENEWAL_LIMIT_REACHED muestra "Este préstamo ya fue renovado"', async () => {
+    respondToRenewWithConflict('RENEWAL_LIMIT_REACHED')
+    const user = userEvent.setup()
+    await showCarlaLoans()
+
+    await user.click(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /renovar/i }),
+    )
+
+    expect(
+      await within(loanItem('La casa de los espíritus')).findByRole('alert'),
+    ).toHaveTextContent('Este préstamo ya fue renovado')
+  })
+
+  it('[UI-RENEW-2] LOAN_OVERDUE muestra "No puedes renovar un préstamo vencido"', async () => {
+    respondToRenewWithConflict('LOAN_OVERDUE')
+    const user = userEvent.setup()
+    await showCarlaLoans()
+
+    await user.click(
+      within(loanItem('La casa de los espíritus')).getByRole('button', { name: /renovar/i }),
+    )
+
+    expect(
+      await within(loanItem('La casa de los espíritus')).findByRole('alert'),
+    ).toHaveTextContent('No puedes renovar un préstamo vencido')
   })
 })
