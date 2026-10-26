@@ -3,12 +3,13 @@
 | Campo        | Valor                                                                                  |
 | ------------ | -------------------------------------------------------------------------------------- |
 | Capa         | `features/catalog/components` y `features/catalog/hooks` (ver `specs/architecture.md`) |
-| Implementa   | UI-CAT-1 a UI-CAT-5 de SPEC-LIB-01 (la búsqueda BOOK-R5 la resuelve la API)            |
+| Implementa   | UI-CAT-1 a UI-CAT-7 de SPEC-LIB-01 (la búsqueda BOOK-R5 la resuelve la API)            |
 | Tipo de test | componentes con Vitest, Testing Library y MSW · flujos BDD · estilos · layout · visual |
 
 ## Responsabilidad
 
-Mostrar el catálogo, buscar libros, ver el detalle de un libro y agregar libros nuevos.
+Mostrar el catálogo, buscar libros, mostrar solo los disponibles, ver el detalle de un libro y
+agregar libros nuevos.
 
 ## Puede depender de / no puede depender de
 
@@ -23,8 +24,8 @@ Mostrar el catálogo, buscar libros, ver el detalle de un libro y agregar libros
 | `hooks/useBooks.ts`                | `listBooks` con búsqueda                                  |
 | `hooks/useBook.ts`                 | `getBook` con recarga silenciosa después de un préstamo   |
 | `hooks/useCreateBook.ts`           | `createBook`                                              |
-| `components/Catalog.tsx`           | buscador (`role="search"`) más la grilla                  |
-| `components/BookList.tsx`          | grilla de tarjetas, estados de carga y error              |
+| `components/Catalog.tsx`           | buscador (`role="search"`), casilla y grilla              |
+| `components/BookList.tsx`          | grilla, filtro de disponibles, carga, error y vacío       |
 | `components/BookCard.tsx`          | tarjeta `<article>` con insignia y botón "Pedir prestado" |
 | `components/AvailabilityBadge.tsx` | insignia "Disponible (n)" o "Agotado"                     |
 | `components/NewBookForm.tsx`       | formulario "Agregar libro"                                |
@@ -40,11 +41,12 @@ Mostrar el catálogo, buscar libros, ver el detalle de un libro y agregar libros
 | UI-CAT-4 | `BookList.module.css` (grilla) y `BookCard.module.css` (insignia)         | `catalog.layout.spec.ts`, `catalog.visual.spec.ts`                                     |
 | UI-CAT-5 | `NewBookForm`: valida BOOK-R1 antes de enviar y muestra errores por campo | `NewBookForm.test.tsx`, `FLOW-CAT-03`, `FLOW-CAT-04`                                   |
 | UI-CAT-6 | `BookList`: aviso `role="alert"` si no puede cargar el catálogo           | `BookList.test.tsx`                                                                    |
+| UI-CAT-7 | `Catalog` (casilla) y `BookList` (oculta los agotados en el cliente)      | `Catalog.test.tsx`, `FLOW-CAT-05`, `catalog.{layout,style,visual}.spec.ts`             |
 
 ## Cómo se prueba esta capa
 
 - Componentes presentacionales (`BookCard`) con datos literales, sin red.
-- Componentes con datos (`BookList`, `NewBookForm`) contra el mock server de Node (`src/mocks/node.ts`).
+- Componentes con datos (`BookList`, `Catalog`, `NewBookForm`) contra el mock server de Node (`src/mocks/node.ts`).
   Sin `vi.mock` ni `vi.fn`: la red es real y la responde MSW. Para un error puntual se usa `server.use()`.
 - Lo que NO se prueba aquí: el color y la posición (jsdom no calcula CSS, lo hacen los proyectos
   `style` y `layout` de Playwright) ni las reglas del backend (BOOK-R2 a BOOK-R6 se prueban en el backend).
