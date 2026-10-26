@@ -76,7 +76,7 @@ Meta:
 
 - `npm run budget` en verde.
 - **Menos tests** que la suite original y **mayor mutation score**.
-- Encuentra al menos un bug real que la suite de IA sí detectaba y que no debés perder.
+- Encuentra al menos un bug real que la suite de IA sí detectaba y que no debes perder.
 
 Pistas: valores límite (stock exacto), descuentos que dejan el total en negativo,
 errores de punto flotante (`0.1 + 0.2`), atomicidad del pedido cuando un SKU no tiene stock,

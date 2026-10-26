@@ -34,7 +34,9 @@ Es la feature que se usa en la actividad práctica de la clase para recorrer el 
 ## Comportamiento en la interfaz
 
 - **UI-RENEW-1** En "Mis préstamos", cada préstamo activo con `renewalCount = 0` muestra el botón "Renovar".
-  Al renovar, la fecha de devolución se actualiza sin recargar y el botón desaparece.
+  Al renovar, la fecha de devolución se actualiza sin recargar y el botón desaparece. Además se anuncia
+  "Préstamo renovado hasta dd-mm-aaaa" en una región de estado y el foco pasa al botón "Devolver" del
+  mismo préstamo.
 - **UI-RENEW-2** Los errores se muestran como "Este préstamo ya fue renovado" y "No puedes renovar un préstamo vencido".
   Para `ALREADY_RETURNED` (solo posible en una carrera, porque el botón no aparece en préstamos devueltos) se
   muestra el `detail` de la API.
@@ -44,8 +46,8 @@ Es la feature que se usa en la actividad práctica de la clase para recorrer el 
 | Regla      | Capa y test que la verifica                                           |
 | ---------- | --------------------------------------------------------------------- |
 | RENEW-R1   | unit dominio `loan.spec.ts` · unit aplicación `renew-loan.spec.ts` · contrato (200) |
-| RENEW-R2   | unit dominio `loan.spec.ts` · contrato (409)                          |
-| RENEW-R3   | unit dominio `loan.spec.ts` (límite exacto en `dueAt`)                |
+| RENEW-R2   | unit dominio `loan.spec.ts` · integración `loan.repository.int-spec.ts` (dos renovaciones simultáneas) y `migrations.int-spec.ts` (`CHECK` de `renewal_count`) · contrato (409 `RENEWAL_LIMIT_REACHED`) |
+| RENEW-R3   | unit dominio `loan.spec.ts` (límite exacto en `dueAt`) · contrato (409 `LOAN_OVERDUE`) |
 | RENEW-R4   | contrato (404 y 400)                                                  |
 | UI-RENEW-1 | componentes `LoanList.test.tsx` · E2E `FLOW-PRE-04`                   |
 | UI-RENEW-2 | componentes `LoanList.test.tsx`                                       |

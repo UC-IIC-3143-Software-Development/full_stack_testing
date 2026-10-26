@@ -49,6 +49,8 @@ Es la primera feature del proyecto y sirve de base para los préstamos (SPEC-LIB
   (390 px) forman una sola columna. La insignia queda en la esquina superior derecha de la tarjeta.
 - **UI-CAT-5** El formulario "Agregar libro" valida el ISBN en el navegador antes de enviar
   y muestra los errores del servidor junto al campo correspondiente.
+- **UI-CAT-6** Si el catálogo no se puede cargar (falla la red o la API), se muestra una alerta
+  (`role="alert"`) con el texto "No pudimos cargar el catálogo. Intenta de nuevo en unos minutos."
 
 ## Criterios de aceptación (mapa a los tests)
 
@@ -63,6 +65,7 @@ Es la primera feature del proyecto y sirve de base para los préstamos (SPEC-LIB
 | UI-CAT-1 a UI-CAT-3 | componentes `BookCard.test.tsx` · E2E `FLOW-CAT-01`, `FLOW-CAT-02` · estilos `catalog.style.spec.ts` |
 | UI-CAT-4 | layout `catalog.layout.spec.ts` · visual `catalog.visual.spec.ts`               |
 | UI-CAT-5 | componentes `NewBookForm.test.tsx` · E2E `FLOW-CAT-03`, `FLOW-CAT-04`           |
+| UI-CAT-6 | componentes `BookList.test.tsx`                                                 |
 
 Cada test incluye el ID de la regla en su título, por ejemplo
 `it('[BOOK-R1] rechaza un ISBN con dígito verificador incorrecto', ...)`.

@@ -17,8 +17,11 @@ El libro propone separar las pruebas en dos ciclos (cap. 4, p. 126 a 128):
 2. **Ciclo lento** sobre la aplicación construida y corriendo: pruebas de sistema,
    DAST, rendimiento y accesibilidad contra el stack real.
 
-Si el ciclo rápido falla, el lento ni siquiera empieza: no tiene sentido construir y
-atacar una imagen cuyo código no pasa los unitarios.
+El ciclo lento espera a que pase toda la calidad de la etapa 2 (lint, tipos, arquitectura,
+contrato, trazabilidad y lint de infraestructura) y los unitarios de la etapa 5: no tiene
+sentido construir y atacar una imagen cuyo código no compila, rompe el contrato o no pasa los
+unitarios. El resto del ciclo rápido (secretos, SAST, dependencias, integración y E2E con mock
+server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Resultado del pipeline".
 
 ```
  PR abierto o push
@@ -40,7 +43,7 @@ atacar una imagen cuyo código no pasa los unitarios.
         │  6 · Integración backend . Testcontainers + supertest vs OpenAPI  │
         │  7 · E2E con mock server . Playwright + MSW (sin backend)         │
         ├──────────────────────────────────────────────────────────────────┘
-        │      CICLO LENTO: necesita 2 y 5 en verde
+        │      CICLO LENTO: necesita toda la etapa 2 y la 5 en verde
         ▼
  ┌────────────────────────────┐     ┌──────────────────────────────────────┐
  │ 8 · Build e imágenes       │────►│ 9 · Sistema                          │
@@ -76,13 +79,13 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 | 2 | `trazabilidad` | `tools/spec-trace.mjs`, tests de tools | Reglas sin tests, tests huérfanos, IDs inexistentes, más de 6 tests por regla y capa | cualquiera de esos casos | p. 72 y 114 |
 | 2 | `lint-infra` | hadolint, actionlint (con shellcheck), zizmor | Dockerfiles inseguros, workflows con errores o inyección de comandos | advertencia o hallazgo | p. 317 |
 | 3 | `semgrep` | Semgrep `p/default`, `p/typescript`, `p/nodejs`, `p/owasp-top-ten` y `.semgrep/rules.yml` | Patrones vulnerables y violaciones de nuestras specs (reloj, SQL, fetch, XSS, console.log) | hallazgo de severidad ERROR | p. 225 |
-| 3 | `codeql` | CodeQL `security-extended` | Flujos de datos peligrosos (de la entrada a una consulta, por ejemplo) | resultados en la pestaña Security | p. 225 |
-| 4 | `dependencias` | dependency review, `npm audit --omit=dev` | Dependencias nuevas o actuales con vulnerabilidades conocidas | severidad high o mayor | p. 216 y 226 |
+| 3 | `codeql` | CodeQL `security-extended` | Flujos de datos peligrosos (de la entrada a una consulta, por ejemplo) | nunca: es informativo y deja los hallazgos en la pestaña Security | p. 225 |
+| 4 | `dependencias` | dependency review, `npm audit --omit=dev` | Dependencias nuevas o actuales con vulnerabilidades conocidas | npm audit con severidad high o mayor. Dependency review es informativo hasta activar Dependency graph en el repo | p. 216 y 226 |
 | 4 | `trivy-fs` | Trivy fs | Vulnerabilidades en lockfiles, secretos y misconfiguraciones | secreto o CRITICAL con parche | p. 226 |
 | 5 | `unit-backend`, `unit-frontend` | Jest, Vitest, Testing Library, MSW | Reglas de negocio y componentes, sin mocks (fakes en memoria) | un test falla | p. 67 y 103 |
 | 6 | `integracion-backend` | Jest + Testcontainers (PostgreSQL) + supertest | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI | un test falla | p. 179 |
 | 7 | `e2e-frontend` | Playwright + playwright-bdd + MSW | Flujos de usuario, regresión visual, colores, posición, accesibilidad | un test falla | p. 183 a 195 |
-| 8 | `imagenes` | Docker Compose, Trivy image, CycloneDX | Vulnerabilidades del sistema base de la imagen, SBOM | CRITICAL con parche | p. 226 |
+| 8 | `imagenes` | Docker Compose, Trivy image, CycloneDX | Vulnerabilidades y secretos dentro de la imagen, SBOM | secreto o CRITICAL con parche | p. 226 |
 | 9 | `sistema` | seed, Playwright `@smoke`, `tools/api-smoke.mjs`, Schemathesis, k6, Lighthouse CI | El sistema completo responde, el backend cumple el contrato con datos generados, rendimiento y calidad web | un test falla o no se cumplen los umbrales | p. 128, 250 y 270 |
 | 9 | `dast` | OWASP ZAP baseline y API scan | Cabeceras faltantes, inyección, XSS en la app corriendo | alerta High o regla FAIL | p. 227 y 229 |
 | 10 | `evidencia` | `tools/evidence/*` | Nada: resume todo en el PR | nunca bloquea | p. 121 |
@@ -118,7 +121,7 @@ puede seguir. Ninguna depende del criterio de quien mira el log.
 | --- | --- | --- |
 | Semgrep | 0 hallazgos ERROR | `.semgrep/rules.yml` y el paso "Compuerta" del job |
 | Trivy fs e imagen | 0 secretos, 0 CRITICAL que tengan parche | paso "Compuerta" de cada job |
-| dependency review | falla con severidad high | `fail-on-severity` |
+| dependency review | severidad high (informativo hasta activar Dependency graph en Settings, Security) | `fail-on-severity` |
 | npm audit | `--audit-level=high` en producción | job `dependencias` |
 | spec-trace | 6 tests por regla y capa como máximo, 0 huérfanos | `--max-per-layer` |
 | k6 | p95 menor a 500 ms y menos de 1 % de errores | `tools/perf/k6-smoke.js` |
@@ -182,6 +185,7 @@ PR cerrados (por ejemplo con un workflow programado).
 | `nightly.yml` | todos los días 06:00 UTC y manual | Mutation testing con Stryker (backend y frontend), flujos en Firefox y WebKit, ZAP full scan opcional |
 | `ai-review.yml` | en cada PR que no es borrador | Claude revisa el diff contra la constitución, la arquitectura y las specs. Requiere el secreto `ANTHROPIC_API_KEY` |
 | `ai-generate-tests.yml` | manual, eligiendo un `operationId` | Claude propone un plan de casos y tests de contrato, y abre un PR en borrador para revisión humana |
+| `visual-baselines.yml` | push a `main` que toca `frontend/tests/visual/` y manual | Genera las capturas de referencia en la imagen de Playwright de CI y las commitea en la rama. El commit del bot no dispara `ci.yml`: haz un push después para correr el pipeline |
 
 **¿Por qué mutation testing no corre en cada PR?** Stryker modifica el código (por
 ejemplo cambia `>` por `>=`) y ejecuta la suite completa por cada mutante. Con cientos

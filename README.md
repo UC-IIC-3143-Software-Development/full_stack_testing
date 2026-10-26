@@ -1,7 +1,7 @@
 # Full Stack Testing con IA y DevSecOps
 
 Proyecto de ejemplo de la clase de **IIC3143 Desarrollo de Software** (UC). Es un monorepo
-con una app pequeña, la **Biblioteca UC** (catálogo de libros y préstamos), construida con
+con una app pequeña, la **Biblioteca UC** (catálogo de libros, préstamos y renovación), construida con
 **Spec Driven Development** y probada en todas sus capas por un pipeline de CI con
 seguridad integrada. Está basado en *Full Stack Testing* (Gayathri Mohan, 2.ª ed.,
 O'Reilly 2026).
@@ -24,7 +24,8 @@ full_stack_testing/
 │   ├── constitution.md        principios no negociables (P4: política de tests)
 │   ├── architecture.md        capas, reglas ARCH-R*, scripts, puertos, formato de evidencia
 │   ├── api/openapi.yaml       contrato de la API (OpenAPI 3.1)
-│   ├── features/              SPEC-LIB-01 catálogo, SPEC-LIB-02 préstamos (reglas BOOK-R*, LOAN-R*, UI-*)
+│   ├── features/              SPEC-LIB-01 catálogo, SPEC-LIB-02 préstamos, SPEC-LIB-03 renovación
+│   │                          (reglas BOOK-R*, LOAN-R*, RENEW-R*, UI-*)
 │   ├── flows/*.feature        flujos de usuario en Gherkin (se ejecutan con playwright-bdd)
 │   └── templates/             plantillas para specs de feature y de capa
 ├── backend/                   NestJS + PostgreSQL (TypeORM), capas domain, application,
@@ -37,7 +38,8 @@ full_stack_testing/
 │   ├── evidence/              GIF, publicación en la rama evidence y comentario del PR
 │   ├── perf/k6-smoke.js       prueba de humo de rendimiento
 │   └── zap/                   reglas de OWASP ZAP y compuerta de alertas
-├── .github/workflows/         ci.yml, nightly.yml, ai-review.yml, ai-generate-tests.yml
+├── .github/workflows/         ci.yml, nightly.yml, ai-review.yml, ai-generate-tests.yml,
+│                              visual-baselines.yml
 ├── .semgrep/                  reglas Semgrep propias ligadas a las specs (con sus tests)
 ├── .githooks/pre-commit       gitleaks + Prettier antes de cada commit
 ├── .spectral.yaml             reglas de estilo del contrato
@@ -47,6 +49,19 @@ full_stack_testing/
 ├── docs/                      pipeline, ejemplo de evidencia y presentación
 └── clase-practica/            laboratorio de la clase
 ```
+
+## Configuración inicial del repositorio
+
+Algunas compuertas dependen de opciones de GitHub que no se versionan en el repo. Al crear tu
+copia, revisa en **Settings**:
+
+1. **Security (Advanced Security), Dependency graph**: actívalo para que dependency review
+   (etapa 4) bloquee el PR. Sin Dependency graph el paso no puede correr y hoy es informativo:
+   deja un aviso en el resumen del job y npm audit y Trivy fs siguen bloqueando.
+2. **Rules o Branches**: protege `main` y exige el check "Resultado del pipeline", que falla si
+   alguna etapa falló.
+3. **Secrets and variables, Actions**: el secreto `ANTHROPIC_API_KEY` para la revisión con IA
+   (ver [Revisión de código con IA](#revisión-de-código-con-ia)).
 
 ## Cómo correrlo
 
@@ -159,6 +174,10 @@ en la misma imagen Docker de Playwright que usa la etapa 7 del CI, con el workfl
 - Si un PR cambia la UI a propósito, ejecuta el workflow a mano (Actions, "Capturas de referencia
   visuales", Run workflow) sobre la rama del PR. El bot commitea las capturas nuevas y la persona
   que revisa el PR aprueba el cambio visual junto con el código.
+- **Ojo: el commit del bot no dispara el CI.** Lo hace con `GITHUB_TOKEN` y GitHub no dispara otros
+  workflows con ese token, así que `ci.yml` no corre sobre ese commit y el PR queda sin el check
+  "Resultado del pipeline". Después del commit del bot, haz un push a la rama (por ejemplo
+  `git commit --allow-empty -m "ci: correr el pipeline"`) para que el CI corra sobre el último commit.
 - Localmente (macOS o Windows) los tests visuales se omiten. Para verlos en Linux usa
   `npm run test:visual:docker` en `frontend/`.
 

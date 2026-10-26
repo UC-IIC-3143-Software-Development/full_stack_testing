@@ -5,7 +5,7 @@
 High Quality Software in the Age of AI*, 2.ª ed., O'Reilly, 2026. Las páginas citadas son las del libro.
 
 **Duración:** 3 h (al final hay una versión de 90 min).
-**Material:** carpeta `lab/` (Node 20+, `npm install`). Enunciado para estudiantes en `lab/README.md`.
+**Material:** carpeta `lab/` (Node 22.12 o superior, recomendado 24, y `npm install`). Enunciado para estudiantes en `lab/README.md`.
 
 ### Objetivos de aprendizaje
 Al terminar, cada estudiante puede:

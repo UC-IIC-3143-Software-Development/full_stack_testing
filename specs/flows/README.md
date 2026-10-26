@@ -24,5 +24,7 @@ El mock server (MSW) y la siembra del stack real usan estos libros:
 
 Reloj fijo: `2026-03-02T12:00:00Z`. Zona horaria: `America/Santiago`. Idioma: `es-CL`.
 
-En el stack real no se puede crear un libro con 0 copias disponibles (BOOK-R4), por eso
-los escenarios que dependen de "La casa de los espíritus" agotado no llevan `@smoke`.
+En el stack real no se puede crear un libro con 0 copias disponibles (BOOK-R4). Por eso el
+`globalSetup` de `test:e2e:smoke` (`frontend/tests/e2e/global-setup.ts`) deja "La casa de los
+espíritus" agotado (0 de 1) y "Ficciones" con 1 de 2 copias con préstamos de carla@uc.cl, igual que
+el mock server. Los escenarios sin `@smoke` corren solo contra el mock server.
