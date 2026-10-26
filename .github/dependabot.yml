@@ -25,6 +25,12 @@ updates:
     groups:
       backend-menores:
         update-types: [minor, patch]
+    # typescript < 7 por ts-jest y @types/node alineado con Node 24 (LTS del runtime y de CI).
+    ignore:
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: npm
     directory: /frontend
@@ -35,6 +41,14 @@ updates:
     groups:
       frontend-menores:
         update-types: [minor, patch]
+    # eslint < 10 mientras eslint-config-next no lo soporte. typescript < 7 por typescript-eslint.
+    ignore:
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   # Mantiene al día los SHA fijados de las acciones (el comentario # vX.Y.Z se actualiza solo)
   - package-ecosystem: github-actions
@@ -55,3 +69,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    # Solo versiones LTS de Node (las pares). Un salto mayor se decide en un PR propio.
+    ignore:
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
