@@ -17,8 +17,8 @@
 name: CI
 
 on:
+  # PR hacia cualquier rama: también corre en PRs apilados (una rama de feature sobre otra)
   pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
