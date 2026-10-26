@@ -99,7 +99,7 @@ Cada app expone estos scripts npm. El pipeline solo llama scripts, nunca comando
 | Variable                  | Valor por defecto                                          | Uso                                   |
 | ------------------------- | ---------------------------------------------------------- | ------------------------------------- |
 | `PORT` (backend)          | `3001`                                                     | Puerto HTTP de la API (prefijo `/api`) |
-| `DATABASE_URL`            | `postgres://biblioteca:biblioteca@localhost:5432/biblioteca` | Conexión PostgreSQL                 |
+| `DATABASE_URL`            | obligatoria, sin valor por defecto (ej. `postgres://usuario:clave@localhost:5432/biblioteca`) | Conexión PostgreSQL |
 | `CLOCK_FIXED_NOW`         | sin valor                                                  | Fija el reloj del backend (solo pruebas y evidencia) |
 | `BACKEND_URL` (frontend)  | `http://localhost:3001`                                    | Destino del rewrite `/api/*` de Next  |
 | `NEXT_PUBLIC_API_MOCKING` | `disabled`                                                 | `enabled` activa MSW en el navegador  |

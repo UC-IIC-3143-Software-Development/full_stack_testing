@@ -12,8 +12,8 @@ rules:
     severity: ERROR
     message: >-
       No leas la hora del sistema en domain ni application. Recibe la hora desde el
-      puerto Clock (SPEC-LIB-02, LOAN-R6): así los tests usan un reloj fijo y el
-      estado OVERDUE es determinista.
+      puerto Clock (SPEC-LIB-02, LOAN-R6): así los tests pueden fijar la fecha y el
+      estado OVERDUE da siempre el mismo resultado.
     metadata:
       spec: specs/features/SPEC-LIB-02-prestamos.md
       rule: LOAN-R6
@@ -46,21 +46,27 @@ rules:
       exclude:
         - '*.spec.ts'
         - '*.int-spec.ts'
-    patterns:
-      - pattern-either:
-          - pattern: $DB.query(`...${$X}...`, ...)
-          - pattern: $DB.query("..." + $X, ...)
-          - pattern: $DB.query($X + "...", ...)
-          - pattern: $QB.where(`...${$X}...`, ...)
-          - pattern: $QB.andWhere(`...${$X}...`, ...)
-          - pattern: $QB.orWhere(`...${$X}...`, ...)
-          - pattern: $QB.having(`...${$X}...`, ...)
-          - pattern: $QB.orderBy(`...${$X}...`, ...)
-      # Interpolar una constante del módulo en MAYÚSCULAS (por ejemplo SELECT_LOANS) es
-      # seguro: su valor no viene del usuario. Todo lo demás se reporta.
-      - metavariable-regex:
-          metavariable: $X
-          regex: '^(?:[^A-Z]|[A-Z].*[a-z])'
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.query(`...${$X}...`, ...)
+              # Misma llamada con tipo genérico: db.query<Fila[]>(`...${x}...`)
+              - pattern: $DB.query<$T>(`...${$X}...`, ...)
+              - pattern: $DB.query("..." + $X, ...)
+              - pattern: $DB.query($X + "...", ...)
+              - pattern: $QB.where(`...${$X}...`, ...)
+              - pattern: $QB.andWhere(`...${$X}...`, ...)
+              - pattern: $QB.orWhere(`...${$X}...`, ...)
+              - pattern: $QB.having(`...${$X}...`, ...)
+              - pattern: $QB.orderBy(`...${$X}...`, ...)
+          # Interpolar una constante del módulo en MAYÚSCULAS (por ejemplo SELECT_LOANS) es
+          # seguro: su valor no viene del usuario. Todo lo demás se reporta.
+          - metavariable-regex:
+              metavariable: $X
+              regex: '^(?:[^A-Z]|[A-Z].*[a-z])'
+      # El parser de Semgrep no reconoce bien await db.query<Tipo>(`...${x}...`): para esa forma
+      # se usa una expresión regular. Se reporta si lo interpolado empieza con minúscula (una variable).
+      - pattern-regex: '\.query<[^>(]*>\(\s*`[^`]*\$\{\s*[a-z_]'
 
   - id: biblioteca-fetch-en-componentes
     languages: [typescript]

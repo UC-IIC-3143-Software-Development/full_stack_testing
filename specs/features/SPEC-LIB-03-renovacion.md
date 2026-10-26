@@ -16,7 +16,7 @@ Es la feature que se usa en la actividad práctica de la clase para recorrer el 
 
 ## Supuestos
 
-- Se mantiene el reloj como puerto (`Clock`). En pruebas se usa el reloj fijo `2026-03-02T12:00:00Z`.
+- Se mantiene el reloj como puerto (`Clock`). En pruebas se usa la fecha fija de prueba `2026-03-02T12:00:00Z`.
 - Los préstamos existentes parten con `renewalCount = 0` (la migración agrega la columna con ese valor por defecto).
 
 ## Reglas de negocio

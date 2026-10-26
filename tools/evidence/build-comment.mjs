@@ -3,7 +3,8 @@
 //
 // Junta los artefactos que dejaron las otras etapas y los resume en un solo
 // comentario en español: estado de cada etapa DevSecOps, GIF y capturas de los
-// flujos de usuario, endpoints verificados en el backend y hallazgos de seguridad.
+// flujos de usuario, endpoints verificados en el backend, hallazgos de seguridad y
+// calidad de código (SonarQube).
 // Todo es opcional: si falta un artefacto, su sección dice "no disponible".
 //
 // Uso:
@@ -18,6 +19,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
+import { renderSummaryMarkdown } from '../sonarqube/report.mjs'
 
 export const MARKER = '<!-- ci-evidence -->'
 
@@ -28,21 +30,27 @@ export const STAGES = [
   {
     n: 2,
     name: 'Calidad y especificación',
-    what: 'lint, tipos, arquitectura, Spectral, oasdiff, spec-trace, hadolint, actionlint, zizmor',
+    what: 'lint, tipos, arquitectura, Spectral, oasdiff, spec-trace, actionlint, zizmor',
     jobs: ['calidad-backend', 'calidad-frontend', 'contrato-openapi', 'trazabilidad', 'lint-infra'],
   },
-  { n: 3, name: 'SAST', what: 'Semgrep y CodeQL', jobs: ['semgrep', 'codeql'] },
+  { n: 3, name: 'SAST', what: 'Semgrep', jobs: ['semgrep'] },
   {
     n: 4,
-    name: 'Dependencias (SCA)',
-    what: 'dependency review, npm audit, Trivy fs',
-    jobs: ['dependencias', 'trivy-fs'],
+    name: 'Dependencias (SCA) y misconfig',
+    what: 'Trivy fs (vulnerabilidades de dependencias y misconfig de Dockerfiles y compose)',
+    jobs: ['trivy-fs'],
   },
   {
     n: 5,
     name: 'Tests unitarios',
     what: 'dominio y aplicación sin mocks, componentes con MSW',
     jobs: ['unit-backend', 'unit-frontend'],
+  },
+  {
+    n: 5,
+    name: 'Calidad de código (SonarQube)',
+    what: 'SonarQube efímero: bugs, vulnerabilidades, code smells, cobertura, duplicación y quality gate',
+    jobs: ['sonarqube'],
   },
   {
     n: 6,
@@ -67,12 +75,6 @@ export const STAGES = [
 
 const FLOW_ICON = { passed: '✅', flaky: '⚠️', skipped: '⏭️' }
 const RESULT_ICON = { success: '✅', failure: '❌', cancelled: '🚫', skipped: '⏭️' }
-const RESULT_TEXT = {
-  success: 'ok',
-  failure: 'falló',
-  cancelled: 'cancelado',
-  skipped: 'omitido (sin cambios)',
-}
 
 // ---------------------------------------------------------------------------
 // Lectura de artefactos
@@ -151,6 +153,8 @@ export function loadArtifacts(dir) {
   }
 
   const junitFile = findFile(files, /schemathesis[^]*\.xml$/) ?? findFile(files, 'junit.xml')
+  // Con la carpeta del artefacto: otras herramientas también podrían dejar un summary.json
+  const sonarqubeFile = findFile(files, /sonarqube[\\/]summary\.json$/)
 
   return {
     files,
@@ -169,6 +173,7 @@ export function loadArtifacts(dir) {
     lighthouse,
     k6: json('k6-summary.json'),
     specTrace: json('spec-trace.json'),
+    sonarqube: sonarqubeFile ? readJson(sonarqubeFile) : null,
   }
 }
 
@@ -225,16 +230,14 @@ const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 export function summarizeTrivy(report) {
   if (!report) return null
   const counts = Object.fromEntries(SEVERITIES.map((s) => [s, 0]))
-  let secrets = 0
   let misconfigs = 0
   for (const result of report.Results ?? []) {
     for (const vuln of result.Vulnerabilities ?? []) {
       if (vuln.Severity in counts) counts[vuln.Severity] += 1
     }
-    secrets += (result.Secrets ?? []).length
     misconfigs += (result.Misconfigurations ?? []).filter((m) => m.Status === 'FAIL').length
   }
-  return { counts, secrets, misconfigs }
+  return { counts, misconfigs }
 }
 
 const SEMGREP_LEVEL = {
@@ -441,16 +444,9 @@ const fmtCounts = (counts) =>
 
 function trivyCell(summary) {
   if (!summary) return 'no disponible'
-  const icon =
-    summary.counts.CRITICAL > 0 || summary.secrets > 0
-      ? '❌'
-      : summary.counts.HIGH > 0
-        ? '⚠️'
-        : '✅'
-  const extra = []
-  if (summary.secrets > 0) extra.push(`secretos ${summary.secrets}`)
-  if (summary.misconfigs > 0) extra.push(`misconfig ${summary.misconfigs}`)
-  return `${icon} ${fmtCounts(summary.counts)}${extra.length ? ` · ${extra.join(' · ')}` : ''}`
+  const icon = summary.counts.CRITICAL > 0 ? '❌' : summary.counts.HIGH > 0 ? '⚠️' : '✅'
+  const misconfig = summary.misconfigs > 0 ? ` · misconfig ${summary.misconfigs}` : ''
+  return `${icon} ${fmtCounts(summary.counts)}${misconfig}`
 }
 
 /** Ruta de la URL auditada por Lighthouse ("/prestamos"), o la URL tal cual si no se puede leer. */
@@ -468,13 +464,11 @@ function zapCell(summary) {
   return `${icon} ${fmtCounts(summary.counts)}`
 }
 
-function securitySection(artifacts, needs) {
+function securitySection(artifacts) {
   const semgrep = summarizeSemgrep(artifacts.semgrep)
   const zapFront = summarizeZap(artifacts.zap.frontend)
   const zapApi = summarizeZap(artifacts.zap.api)
   const gitleaks = artifacts.gitleaks
-  const jobCell = (job) =>
-    `${RESULT_ICON[needs[job]?.result] ?? '⏭️'} ${RESULT_TEXT[needs[job]?.result] ?? 'no corrió'}`
 
   const rows = [
     [
@@ -491,16 +485,7 @@ function securitySection(artifacts, needs) {
         ? `${semgrep.counts.ERROR > 0 ? '❌' : semgrep.counts.WARNING > 0 ? '⚠️' : '✅'} ${fmtCounts(semgrep.counts)}`
         : 'no disponible',
     ],
-    // CodeQL no bloquea por hallazgos: solo sube el SARIF a la pestaña Security
-    [
-      'CodeQL',
-      'SAST',
-      ['failure', 'cancelled'].includes(needs.codeql?.result)
-        ? `${jobCell('codeql')} · informativo (ver pestaña Security)`
-        : 'ℹ️ informativo (ver pestaña Security)',
-    ],
-    ['Dependency review y npm audit', 'SCA', jobCell('dependencias')],
-    ['Trivy fs', 'SCA, secretos e IaC', trivyCell(summarizeTrivy(artifacts.trivy.fs))],
+    ['Trivy fs', 'SCA e IaC', trivyCell(summarizeTrivy(artifacts.trivy.fs))],
     ['Trivy imagen backend', 'Contenedor', trivyCell(summarizeTrivy(artifacts.trivy.backend))],
     ['Trivy imagen frontend', 'Contenedor', trivyCell(summarizeTrivy(artifacts.trivy.frontend))],
     ['OWASP ZAP baseline (frontend)', 'DAST', zapCell(zapFront)],
@@ -508,17 +493,16 @@ function securitySection(artifacts, needs) {
   ]
   const lh = artifacts.lighthouse
   if (lh?.length) {
+    // Sin accesibilidad: la revisa axe con Playwright (Lighthouse usa axe por debajo)
     const names = {
       performance: 'Rendimiento',
-      accessibility: 'Accesibilidad',
       'best-practices': 'Buenas prácticas',
       seo: 'SEO',
     }
     for (const run of lh) {
-      const scores = Object.entries(run.scores)
-        .filter(([k]) => names[k])
-        .map(([k, v]) => `${names[k]} ${Math.round(v * 100)}`)
-      const min = Math.min(...Object.values(run.scores).map((v) => v * 100))
+      const shown = Object.entries(run.scores).filter(([k]) => names[k])
+      const scores = shown.map(([k, v]) => `${names[k]} ${Math.round(v * 100)}`)
+      const min = Math.min(...shown.map(([, v]) => v * 100))
       rows.push([
         `Lighthouse CI \`${lighthousePath(run.url)}\``,
         'Calidad web',
@@ -573,6 +557,18 @@ function securitySection(artifacts, needs) {
   return [...lines, ...details]
 }
 
+function sonarqubeSection(summary) {
+  if (!summary?.qualityGate) {
+    return [
+      '### 🧹 Calidad de código (SonarQube)',
+      '',
+      '_No disponible: el job `sonarqube` no corrió o no dejó resumen._',
+      '',
+    ]
+  }
+  return renderSummaryMarkdown(summary)
+}
+
 // ---------------------------------------------------------------------------
 // Comentario completo
 // ---------------------------------------------------------------------------
@@ -607,7 +603,8 @@ export function buildComment({
     '',
     ...frontendSection(artifacts, { baseUrl, runUrl, example, openItems: 3 }),
     ...backendSection(artifacts, operations),
-    ...securitySection(artifacts, needs),
+    ...securitySection(artifacts),
+    ...sonarqubeSection(artifacts.sonarqube),
     '---',
     '_Generado por la etapa 10 de `.github/workflows/ci.yml`. Este comentario se actualiza en cada push del PR. ' +
       'Las imágenes viven en la rama `evidence`._',

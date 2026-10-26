@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useState, type InputHTMLAttributes, type SubmitEvent } from 'react'
 import type { ApiFailure } from '@/shared/api/problem'
 import type { Book } from '@/shared/api/types'
 import { isValidIsbn13 } from '@/shared/domain/isbn'
@@ -49,12 +49,12 @@ function serverErrors(failure: ApiFailure, fields: Record<string, string>): Form
  * errores del servidor junto al campo correspondiente. Quien lo usa decide qué hacer
  * después de crear el libro (onCreated), así el componente no depende del router.
  */
-export function NewBookForm({ onCreated }: { onCreated: (book: Book) => void }) {
+export function NewBookForm({ onCreated }: Readonly<{ onCreated: (book: Book) => void }>) {
   const { createBook, pending } = useCreateBook()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [generalError, setGeneralError] = useState<string | null>(null)
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = event.currentTarget
     const data = new FormData(form)

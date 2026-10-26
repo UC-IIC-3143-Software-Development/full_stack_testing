@@ -22,7 +22,9 @@ El mock server (MSW) y la siembra del stack real usan estos libros:
 | Pedro Páramo                                      | Juan Rulfo              | 9786073105484 | 2              | 2           |
 | Veinte poemas de amor y una canción desesperada   | Pablo Neruda            | 9789562390910 | 2              | 2           |
 
-Reloj fijo: `2026-03-02T12:00:00Z`. Zona horaria: `America/Santiago`. Idioma: `es-CL`.
+**Fecha fija de prueba:** todas las pruebas simulan que hoy es `2026-03-02T12:00:00Z`, en vez de leer la
+hora real del computador. Así una fecha de devolución esperada (por ejemplo "16-03-2026") es siempre
+la misma, sin importar el día en que se corran las pruebas. Zona horaria: `America/Santiago`. Idioma: `es-CL`.
 
 En el stack real no se puede crear un libro con 0 copias disponibles (BOOK-R4). Por eso el
 `globalSetup` de `test:e2e:smoke` (`frontend/tests/e2e/global-setup.ts`) deja "La casa de los

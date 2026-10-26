@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hook pre-commit del repo (inspirado en Talisman, libro p. 238).
+# Hook pre-commit del repo (inspirado en herramientas como Talisman).
 #
 # Detiene el commit ANTES de que un secreto llegue al historial de git, que es
 # donde ya es tarde: borrar el archivo en otro commit no lo saca del historial.

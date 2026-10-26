@@ -4,7 +4,7 @@
 | ------------ | --------------------------------------------------------------------------------------- |
 | Capa         | application (ver `specs/architecture.md`)                                               |
 | Implementa   | LOAN-R1, LOAN-R2, LOAN-R4 a LOAN-R7 de SPEC-LIB-02 y RENEW-R1 a RENEW-R4 de SPEC-LIB-03 |
-| Tipo de test | unit con fakes en memoria y reloj fijo                                                  |
+| Tipo de test | unit con fakes en memoria y fecha fija de prueba                                        |
 
 ## Responsabilidad
 

@@ -19,14 +19,14 @@ Simular la API con MSW para probar el frontend sin backend: en Vitest (Node) y e
 
 ## Elementos
 
-| Archivo                     | Propósito                                                                                                  |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `loan-status.ts`            | Versión mínima de LOAN-R6 para devolver estados realistas (la regla real vive en el backend)               |
-| `fixtures.ts`               | Libros de `specs/flows/README.md`, reloj fijo y préstamos de `carla@uc.cl` (sin renovar, `renewalCount` 0) |
-| `db.ts`                     | "Base de datos" fake: en memoria (Node) o en `sessionStorage` (navegador)                                  |
-| `handlers.ts`               | Un handler por operación del contrato, con errores `application/problem+json`                              |
-| `browser.ts` / `node.ts`    | `setupWorker` y `setupServer` con los mismos handlers                                                      |
-| `handlers.contract.test.ts` | Valida cada respuesta contra el contrato con Ajv (JSON Schema 2020-12)                                     |
+| Archivo                     | Propósito                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `loan-status.ts`            | Versión mínima de LOAN-R6 para devolver estados realistas (la regla real vive en el backend)                         |
+| `fixtures.ts`               | Libros de `specs/flows/README.md`, fecha fija de prueba y préstamos de `carla@uc.cl` (sin renovar, `renewalCount` 0) |
+| `db.ts`                     | "Base de datos" fake: en memoria (Node) o en `sessionStorage` (navegador)                                            |
+| `handlers.ts`               | Un handler por operación del contrato, con errores `application/problem+json`                                        |
+| `browser.ts` / `node.ts`    | `setupWorker` y `setupServer` con los mismos handlers                                                                |
+| `handlers.contract.test.ts` | Valida cada respuesta contra el contrato con Ajv (JSON Schema 2020-12)                                               |
 
 ## Reglas que implementa
 

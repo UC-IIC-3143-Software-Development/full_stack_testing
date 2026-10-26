@@ -10,7 +10,7 @@ import { InMemoryUnitOfWork } from '../fakes/in-memory-unit-of-work'
 import { FIXED_NOW } from './test-data'
 
 /**
- * Arma los casos de uso con fakes en memoria y reloj fijo. Sin mocks: los tests
+ * Arma los casos de uso con fakes en memoria y fecha fija de prueba. Sin mocks: los tests
  * verifican el estado final de los repositorios, no qué métodos se llamaron.
  */
 export function createApplication() {

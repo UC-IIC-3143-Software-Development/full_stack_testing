@@ -11,16 +11,20 @@ export interface AppConfig {
 
 export const APP_CONFIG = Symbol('AppConfig')
 
-export const DEFAULT_DATABASE_URL = 'postgres://biblioteca:biblioteca@localhost:5432/biblioteca'
-
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const port = Number(env.PORT ?? 3001)
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error(`PORT inválido: ${env.PORT}`)
   }
+  // Sin valor por defecto: una contraseña escrita en el código es una vulnerabilidad
+  // (SonarQube la detectó). La conexión siempre viene del entorno.
+  const databaseUrl = env.DATABASE_URL
+  if (!databaseUrl) {
+    throw new Error('Falta la variable DATABASE_URL (ver backend/README.md)')
+  }
   return {
     port,
-    databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+    databaseUrl,
     clockFixedNow: env.CLOCK_FIXED_NOW || undefined,
     // El contrato vive fuera de backend/. En desarrollo se lee desde ../specs y
     // en la imagen Docker desde la copia que indica OPENAPI_PATH.

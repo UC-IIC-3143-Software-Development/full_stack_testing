@@ -4,7 +4,7 @@ import { AvailabilityBadge } from './AvailabilityBadge'
 import styles from './BookDetail.module.css'
 
 /** Ficha de un libro en /libros/[id]. */
-export function BookDetail({ book }: { book: Book }) {
+export function BookDetail({ book }: Readonly<{ book: Book }>) {
   return (
     <section className={styles.detail} aria-labelledby="book-title">
       <div className={styles.heading}>

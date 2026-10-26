@@ -17,7 +17,8 @@ copias que no existen y limitar cuántos libros puede tener una persona al mismo
 ## Supuestos
 
 - La persona se identifica solo por su correo. No hay cuentas de usuario en esta versión.
-- La hora actual viene de un puerto `Clock`. En pruebas se usa un reloj fijo, nunca `Date.now()` directo.
+- El código obtiene la hora actual a través de un puerto `Clock`, nunca con `Date.now()` directo. Así las
+  pruebas pueden fijar la fecha y el resultado no depende del día en que se corren.
 - Las fechas se guardan en UTC. La interfaz las muestra en formato `dd-mm-aaaa` (Chile).
 
 ## Reglas de negocio

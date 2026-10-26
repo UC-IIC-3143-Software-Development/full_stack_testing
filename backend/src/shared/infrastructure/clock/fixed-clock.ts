@@ -1,8 +1,9 @@
 import type { Clock } from '../../application/clock'
 
 /**
- * Reloj fijo. Se usa en los tests y cuando se define CLOCK_FIXED_NOW (evidencia del PR),
- * para que "hoy" sea siempre el mismo instante, por ejemplo 2026-03-02T12:00:00Z.
+ * Reloj que siempre entrega la misma fecha (la fecha fija de prueba). Se usa en los tests y cuando
+ * se define CLOCK_FIXED_NOW (evidencia del PR), para que "hoy" sea siempre el mismo instante,
+ * por ejemplo 2026-03-02T12:00:00Z.
  */
 export class FixedClock implements Clock {
   private current: Date
@@ -10,7 +11,7 @@ export class FixedClock implements Clock {
   constructor(now: Date | string) {
     const date = new Date(now)
     if (Number.isNaN(date.getTime())) {
-      throw new Error(`Fecha inválida para el reloj fijo: ${String(now)}`)
+      throw new Error(`Fecha de prueba inválida: ${String(now)}`)
     }
     this.current = date
   }

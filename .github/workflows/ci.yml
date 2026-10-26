@@ -2,23 +2,23 @@
 #
 #                ┌─ 1 Secretos ─────────────────────────────────────────────┐
 #                ├─ 2 Calidad y especificación (lint, tipos, arquitectura,  │
-#                │    Spectral, oasdiff, spec-trace, hadolint, zizmor)      │
-#   0 Cambios ───┼─ 3 SAST (Semgrep, CodeQL)                                ├─► 10 Evidencia en el PR
-#                ├─ 4 Dependencias (dependency review, npm audit, Trivy fs) │   y Resultado
-#                ├─ 5 Unitarios ──┐                                         │
+#                │    Spectral, oasdiff, spec-trace, actionlint, zizmor)    │
+#   0 Cambios ───┼─ 3 SAST (Semgrep)                                        ├─► 10 Evidencia en el PR
+#                ├─ 4 Dependencias y misconfig (Trivy fs)                   │   y Resultado
+#                ├─ 5 Unitarios ──┬─► 5 SonarQube efímero (quality gate)    │
 #                ├─ 6 Integración y contrato backend (Testcontainers)       │
 #                ├─ 7 E2E frontend con mock server (MSW)                    │
 #                └────────────────┴─► 8 Build e imágenes ─► 9 Sistema y DAST┘
 #
 # Primer ciclo de feedback (etapas 1 a 7): código estático y pruebas que no necesitan
 # desplegar nada. Segundo ciclo (etapas 8 y 9): la aplicación construida y corriendo.
-# La etapa 8 espera a las etapas 2 y 5 en verde: el ciclo lento no parte si el rápido falla.
-# Libro Full Stack Testing, cap. 4, p. 126 a 128.
+# La etapa 8 espera a la etapa 2 y a los unitarios de la etapa 5 en verde: el ciclo lento no
+# parte si el rápido falla. SonarQube (también etapa 5) corre en paralelo y bloquea en Resultado.
 name: CI
 
 on:
+  # PR hacia cualquier rama: también corre en PRs apilados (una rama de feature sobre otra)
   pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -74,7 +74,7 @@ jobs:
               - 'package-lock.json'
               - '.spectral.yaml'
               - '.gitleaks.toml'
-              - '.hadolint.yaml'
+              - 'sonar-project.properties'
               - '.prettierrc.json'
               - '.editorconfig'
 
@@ -305,7 +305,7 @@ jobs:
           if-no-files-found: ignore
 
   lint-infra:
-    name: 2 · Lint de infraestructura y del pipeline (hadolint, actionlint, zizmor)
+    name: 2 · Lint del pipeline (actionlint, zizmor)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -314,22 +314,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Dockerfiles (hadolint)
-        run: |
-          status=0
-          for file in backend/Dockerfile frontend/Dockerfile
-          do
-            if [ -f "$file" ]
-            then
-              echo "::group::hadolint $file"
-              docker run --rm -i -v "$PWD/.hadolint.yaml:/config/hadolint.yaml:ro" \
-                hadolint/hadolint:v2.15.1 hadolint --config /config/hadolint.yaml - < "$file" || status=1
-              echo "::endgroup::"
-            fi
-          done
-          exit "$status"
       - name: Sintaxis y shell de los workflows (actionlint con shellcheck)
-        if: ${{ !cancelled() }}
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - name: Seguridad de los workflows (zizmor)
         if: ${{ !cancelled() }}
@@ -362,10 +347,11 @@ jobs:
             semgrep/semgrep:1.182.1 semgrep scan \
             --config p/default --config p/typescript --config p/nodejs --config p/owasp-top-ten \
             --config .semgrep/rules.yml \
-            --exclude .semgrep --exclude tools/__fixtures__ --exclude clase-practica \
+            --exclude .semgrep --exclude tools/__fixtures__ \
             --metrics=off \
             --json-output=reports/semgrep/semgrep.json \
             --sarif-output=reports/semgrep/semgrep.sarif
+      # upload-sarif solo sube el reporte a la pestaña Security. No corre el análisis de CodeQL.
       - name: Subir SARIF a code scanning
         if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
@@ -385,85 +371,13 @@ jobs:
           jq -r '.results[] | select(.extra.severity == "ERROR" or .extra.severity == "HIGH" or .extra.severity == "CRITICAL") | "::error file=\(.path),line=\(.start.line)::\(.check_id): \(.extra.message)"' reports/semgrep/semgrep.json
           test "$errors" -eq 0
 
-  codeql:
-    name: 3 · SAST con CodeQL
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      security-events: write # subir SARIF a la pestaña Security (code scanning)
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-        with:
-          languages: javascript-typescript
-          build-mode: none
-          queries: security-extended
-          config: |
-            paths-ignore:
-              - tools/__fixtures__
-              - clase-practica
-              - .semgrep
-      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-        with:
-          category: /language:javascript-typescript
-
   # ---------------------------------------------------------------------------
-  # Etapa 4 · Dependencias (SCA): vulnerabilidades y licencias de terceros
+  # Etapa 4 · Dependencias (SCA) y misconfig con Trivy fs. Una herramienta por análisis:
+  # vuln revisa las dependencias, misconfig los Dockerfiles y docker-compose.yml.
+  # Los secretos los revisa gitleaks en la etapa 1.
   # ---------------------------------------------------------------------------
-  dependencias:
-    name: 4 · Dependencias (dependency review y npm audit)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write # dependency review comenta el resumen en el PR solo cuando falla
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Necesita el Dependency graph activado en el repo. Si no lo está, la acción falla
-      # con "Dependency review is not supported on this repository". Por eso no bloquea:
-      # npm audit (abajo) y Trivy fs siguen siendo las compuertas de dependencias.
-      - name: Dependencias nuevas del PR (falla con severidad high)
-        id: dependency-review
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          fail-on-severity: high
-          comment-summary-in-pr: on-failure
-      - name: Aviso si dependency review no pudo correr o falló
-        if: ${{ !cancelled() && steps.dependency-review.outcome == 'failure' }}
-        run: |
-          echo "::warning title=Dependency review::No bloqueó el PR. Revisa el log del paso y activa Dependency graph en Settings, Security."
-          {
-            echo "### ⚠️ Dependency review no bloquea este PR"
-            echo ""
-            echo "El paso falló o no pudo correr. Si el log dice \"Dependency review is not supported on this repository\","
-            echo "hay que activar **Dependency graph** en Settings, Security (Advanced Security) del repositorio."
-            echo ""
-            echo "Mientras tanto, npm audit (este job) y Trivy fs siguen bloqueando dependencias vulnerables."
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: npm audit de producción por app
-        if: ${{ !cancelled() }}
-        run: |
-          status=0
-          for dir in backend frontend
-          do
-            if [ -f "$dir/package-lock.json" ]
-            then
-              echo "::group::npm audit $dir"
-              (cd "$dir" && npm audit --omit=dev --audit-level=high) || status=1
-              echo "::endgroup::"
-            fi
-          done
-          exit "$status"
-
   trivy-fs:
-    name: 4 · Trivy fs (vulnerabilidades, secretos y misconfig)
+    name: 4 · Dependencias y misconfig (Trivy fs)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -485,8 +399,8 @@ jobs:
         run: |
           mkdir -p reports/trivy "$HOME/.cache/trivy"
           docker run --rm -v "$PWD:/src" -w /src -v "$HOME/.cache/trivy:/root/.cache/trivy" \
-            aquasec/trivy:0.76.1 fs --scanners vuln,secret,misconfig \
-            --skip-dirs tools/__fixtures__ --skip-dirs clase-practica \
+            aquasec/trivy:0.76.1 fs --scanners vuln,misconfig \
+            --skip-dirs tools/__fixtures__ \
             --format json --output reports/trivy/trivy-fs.json .
           docker run --rm -v "$PWD:/src" -w /src -v "$HOME/.cache/trivy:/root/.cache/trivy" \
             aquasec/trivy:0.76.1 convert --format sarif --output reports/trivy/trivy-fs.sarif \
@@ -505,12 +419,11 @@ jobs:
           name: trivy-fs
           path: reports/trivy/trivy-fs.json
           if-no-files-found: ignore
-      - name: Compuerta (secretos o vulnerabilidades CRITICAL con parche)
+      - name: Compuerta (vulnerabilidades CRITICAL con parche)
         run: |
           critical=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")] | length' reports/trivy/trivy-fs.json)
-          secrets=$(jq '[.Results[]?.Secrets[]?] | length' reports/trivy/trivy-fs.json)
-          echo "CRITICAL con parche: $critical, secretos: $secrets"
-          test "$critical" -eq 0 && test "$secrets" -eq 0
+          echo "CRITICAL con parche: $critical"
+          test "$critical" -eq 0
 
   # ---------------------------------------------------------------------------
   # Etapa 5 · Tests unitarios (la base de la pirámide)
@@ -579,6 +492,125 @@ jobs:
           path: |
             frontend/reports
             frontend/coverage
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Etapa 5 · SonarQube efímero: calidad de código, cobertura y quality gate.
+  # SonarQube Community corre en un contenedor temporal de este mismo runner y desaparece
+  # al terminar el job: no hay servidor que pagar ni que mantener. tools/sonarqube/run.mjs
+  # lo levanta, cambia la contraseña de admin por una aleatoria, crea un token y la quality
+  # gate (las condiciones mínimas de calidad), analiza con sonar-project.properties y exporta
+  # el resumen. Es el mismo comando que corres en tu máquina.
+  # En un PR mide el código nuevo: analiza la base y después el HEAD, aplica la quality gate
+  # del código nuevo y un bot comenta el resultado en el PR (comentario <!-- sonarqube-pr -->).
+  # ---------------------------------------------------------------------------
+  sonarqube:
+    name: 5 · SonarQube efímero (calidad, cobertura y quality gate)
+    needs: [cambios, unit-backend, unit-frontend]
+    # Corre si alguna app cambió y ningún unitario falló. Un unitario omitido (su app no
+    # cambió) no deja lcov: este job lo genera en el paso "Generar la cobertura que falte"
+    if: ${{ !cancelled() && needs.cambios.outputs.stack == 'true' && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write # crear o actualizar el comentario del bot con el código nuevo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Historia completa: run.mjs hace checkout de la base y git blame dice qué líneas
+          # son nuevas. En un PR se analiza el HEAD de la rama (no el merge con main), así los
+          # links del comentario apuntan a las mismas líneas que vio SonarQube
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      # Se reutiliza la cobertura de unit-backend y unit-frontend: no se corren dos veces.
+      # Si la app no cambió en el PR, el artefacto no existe y el paso sigue sin error
+      - name: Descargar la cobertura del backend (etapa 5)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cobertura-backend
+          path: backend
+      - name: Descargar la cobertura del frontend (etapa 5)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cobertura-frontend
+          path: frontend
+      # SonarQube usa los tipos de node_modules para entender el código TypeScript
+      - name: Instalar las dependencias de las apps
+        run: |
+          (cd backend && npm ci)
+          (cd frontend && npm ci)
+      - name: Generar la cobertura que falte
+        run: |
+          for app in backend frontend
+          do
+            if [ ! -f "$app/reports/coverage/lcov.info" ]
+            then
+              echo "::group::npm run test:unit en $app (sin artefacto de cobertura)"
+              (cd "$app" && npm run test:unit)
+              echo "::endgroup::"
+            fi
+          done
+      # Si la quality gate falla, este paso falla y el job queda en rojo. El comentario del PR
+      # se publica igual en el paso siguiente (if: always())
+      - name: SonarQube efímero (levantar, analizar, exportar y borrar)
+        env:
+          # Vacías en push a main: un solo análisis de todo el código con QUALITY_GATE.
+          # En un PR: modo PR, dos análisis y la quality gate del código nuevo
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tools/sonarqube/run.mjs
+      # Un PR desde un fork no recibe permiso de escritura: ahí no se comenta
+      - name: Comentar el código nuevo en el PR (bot de SonarQube)
+        if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('node:fs')
+            const file = 'reports/sonarqube/pr.md'
+            if (!fs.existsSync(file)) {
+              core.warning('No hay reports/sonarqube/pr.md: el análisis no llegó a exportar el código nuevo.')
+              return
+            }
+            const marker = '<!-- sonarqube-pr -->'
+            const body = fs.readFileSync(file, 'utf8').slice(0, 65000)
+            const { owner, repo } = context.repo
+            const issue_number = context.payload.pull_request.number
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            })
+            const previous = comments.find(
+              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
+            )
+            if (previous) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body })
+              core.info(`Comentario actualizado: ${previous.html_url}`)
+            } else {
+              const { data } = await github.rest.issues.createComment({ owner, repo, issue_number, body })
+              core.info(`Comentario creado: ${data.html_url}`)
+            }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: sonarqube
+          path: |
+            reports/sonarqube/summary.json
+            reports/sonarqube/summary.md
+            reports/sonarqube/pr.json
+            reports/sonarqube/pr.md
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
@@ -673,7 +705,7 @@ jobs:
   imagenes:
     name: 8 · Build de imágenes, Trivy image y SBOM
     # El ciclo lento espera al rápido: la calidad de cada app, el contrato, la trazabilidad,
-    # el lint de infraestructura y los unitarios (etapas 2 y 5) tienen que estar en verde.
+    # el lint del pipeline y los unitarios (etapas 2 y 5) tienen que estar en verde.
     needs:
       - cambios
       - calidad-backend
@@ -714,7 +746,7 @@ jobs:
           for app in backend frontend
           do
             image="biblioteca-${app}:ci"
-            trivy image --scanners vuln,secret --format json --output "/out/trivy-image-${app}.json" "$image"
+            trivy image --scanners vuln --format json --output "/out/trivy-image-${app}.json" "$image"
             trivy convert --format sarif --output "/out/trivy-image-${app}.sarif" "/out/trivy-image-${app}.json"
             trivy convert --format table "/out/trivy-image-${app}.json"
             trivy image --format cyclonedx --output "/out/sbom-${app}.cdx.json" "$image"
@@ -738,16 +770,15 @@ jobs:
           path: |
             reports/trivy/*.json
           if-no-files-found: ignore
-      - name: Compuerta (secretos o vulnerabilidades CRITICAL con parche en las imágenes)
+      - name: Compuerta (vulnerabilidades CRITICAL con parche en las imágenes)
         run: |
           status=0
           for app in backend frontend
           do
             report="reports/trivy/trivy-image-${app}.json"
             critical=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")] | length' "$report")
-            secrets=$(jq '[.Results[]?.Secrets[]?] | length' "$report")
-            echo "$app: CRITICAL con parche: $critical, secretos: $secrets"
-            if [ "$critical" -ne 0 ] || [ "$secrets" -ne 0 ]
+            echo "$app: CRITICAL con parche: $critical"
+            if [ "$critical" -ne 0 ]
             then
               status=1
             fi
@@ -849,7 +880,7 @@ jobs:
             grafana/k6:2.3.0 run tools/perf/k6-smoke.js
 
       # @lhci/cli autorun con frontend/lighthouserc.json (umbrales definidos por el frontend)
-      - name: Lighthouse CI (rendimiento, accesibilidad, buenas prácticas, SEO)
+      - name: Lighthouse CI (rendimiento, buenas prácticas, SEO)
         if: ${{ !cancelled() && steps.frontend.outcome == 'success' }}
         working-directory: frontend
         run: npm run test:lighthouse
@@ -982,11 +1013,10 @@ jobs:
       - trazabilidad
       - lint-infra
       - semgrep
-      - codeql
-      - dependencias
       - trivy-fs
       - unit-backend
       - unit-frontend
+      - sonarqube
       - integracion-backend
       - e2e-frontend
       - imagenes
@@ -1012,7 +1042,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
-          pattern: '{evidencia-*,contrato-backend,api-smoke,schemathesis,semgrep,trivy-*,zap,gitleaks,lighthouse,k6,spec-trace}'
+          pattern: '{evidencia-*,contrato-backend,api-smoke,schemathesis,semgrep,trivy-*,zap,gitleaks,lighthouse,k6,spec-trace,sonarqube}'
       # La evidencia es opcional: si falla el GIF o la publicación, el comentario sale igual
       # (sin imágenes) con los endpoints y la seguridad
       - name: Convertir los videos de Playwright a GIF
@@ -1083,11 +1113,10 @@ jobs:
       - trazabilidad
       - lint-infra
       - semgrep
-      - codeql
-      - dependencias
       - trivy-fs
       - unit-backend
       - unit-frontend
+      - sonarqube
       - integracion-backend
       - e2e-frontend
       - imagenes

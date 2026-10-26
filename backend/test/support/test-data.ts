@@ -2,7 +2,7 @@ import { Book } from '../../src/books/domain/book'
 import { Email } from '../../src/loans/domain/email'
 import { Loan } from '../../src/loans/domain/loan'
 
-/** Reloj fijo de todas las pruebas (specs/flows/README.md). */
+/** Fecha fija de todas las pruebas (specs/flows/README.md). */
 export const FIXED_NOW = '2026-03-02T12:00:00.000Z'
 
 export interface BookSeed {

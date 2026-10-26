@@ -2,6 +2,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTs from 'eslint-config-next/typescript'
 import playwright from 'eslint-plugin-playwright'
+import sonarjs from 'eslint-plugin-sonarjs'
+
+// SonarJS (eslint-plugin-sonarjs) trae las mismas reglas que usan SonarQube y SonarLint para
+// JavaScript y TypeScript: bugs, código difícil de mantener y puntos de seguridad a revisar.
 
 // La política de tests de la constitución (P4) también se verifica con el linter:
 // así un agente de IA no puede "colar" mocks, esperas fijas ni tests sin ID de regla.
@@ -37,8 +41,19 @@ const testPolicy = {
 }
 
 export default defineConfig([
+  // SonarJS va primero porque su config fija settings.react.version en '999.999.999'. Así la
+  // config de Next lo reemplaza por 'detect', que lee la versión de React instalada.
+  sonarjs.configs.recommended,
   ...nextVitals,
   ...nextTs,
+  {
+    // Información de tipos para las reglas de SonarJS que la necesitan, como sonarjs/deprecation
+    // (avisa si usas algo marcado como obsoleto). Sin esto, ESLint se salta esas reglas sin avisar.
+    files: ['**/*.{ts,tsx,mts}'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+  },
   globalIgnores([
     '.next/**',
     '.features-gen/**',

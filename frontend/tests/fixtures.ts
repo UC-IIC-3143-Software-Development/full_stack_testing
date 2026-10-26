@@ -1,4 +1,4 @@
-// Fixture compartido por los proyectos visual, style, layout y a11y: reloj fijo en cada página.
+// Fixture compartido por los proyectos visual, style, layout y a11y: fecha fija de prueba en cada página.
 import { test as base } from '@playwright/test'
 import { fixedClockPage } from './support/clock'
 

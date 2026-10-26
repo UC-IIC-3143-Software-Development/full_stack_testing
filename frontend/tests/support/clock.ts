@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 
-/** Reloj fijo de las pruebas (specs/flows/README.md). */
+/** Fecha fija de las pruebas (specs/flows/README.md). */
 export const FIXED_NOW = new Date('2026-03-02T12:00:00.000Z')
 
 /**

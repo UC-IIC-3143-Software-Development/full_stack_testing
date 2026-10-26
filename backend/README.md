@@ -21,21 +21,21 @@ docker run -d --name biblioteca-pg -e POSTGRES_USER=biblioteca -e POSTGRES_PASSW
 PGPORT=$(docker port biblioteca-pg 5432 | cut -d: -f2)
 
 export DATABASE_URL="postgres://biblioteca:biblioteca@127.0.0.1:$PGPORT/biblioteca"
-export CLOCK_FIXED_NOW=2026-03-02T12:00:00Z   # opcional: reloj fijo, como en los tests
+export CLOCK_FIXED_NOW=2026-03-02T12:00:00Z   # opcional: fecha fija de prueba, como en los tests
 npm run build && npm run start:prod           # las migraciones corren al iniciar
 npm run seed                                  # carga los libros de specs/flows/README.md
 
 curl http://localhost:3001/api/health         # {"status":"ok"}
 ```
 
-| Variable            | Valor por defecto                                            | Uso                                             |
-| ------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
-| `PORT`              | `3001`                                                       | Puerto HTTP. Todas las rutas van bajo `/api`    |
-| `DATABASE_URL`      | `postgres://biblioteca:biblioteca@localhost:5432/biblioteca` | Conexión a PostgreSQL                           |
-| `CLOCK_FIXED_NOW`   | sin valor                                                    | Fija "hoy" (ISO 8601). Solo pruebas y evidencia |
-| `OPENAPI_PATH`      | `../specs/api/openapi.yaml`                                  | Contrato que usa el validador de requests       |
-| `DB_RUN_MIGRATIONS` | `true`                                                       | `false` evita correr migraciones al iniciar     |
-| `API_URL` (seed)    | `http://localhost:3001`                                      | Backend donde `npm run seed` carga datos        |
+| Variable            | Valor por defecto                                                                             | Uso                                             |
+| ------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `PORT`              | `3001`                                                                                        | Puerto HTTP. Todas las rutas van bajo `/api`    |
+| `DATABASE_URL`      | obligatoria, sin valor por defecto (ej. `postgres://usuario:clave@localhost:5432/biblioteca`) | Conexión a PostgreSQL                           |
+| `CLOCK_FIXED_NOW`   | sin valor                                                                                     | Fija "hoy" (ISO 8601). Solo pruebas y evidencia |
+| `OPENAPI_PATH`      | `../specs/api/openapi.yaml`                                                                   | Contrato que usa el validador de requests       |
+| `DB_RUN_MIGRATIONS` | `true`                                                                                        | `false` evita correr migraciones al iniciar     |
+| `API_URL` (seed)    | `http://localhost:3001`                                                                       | Backend donde `npm run seed` carga datos        |
 
 ## Arquitectura en capas
 
@@ -77,7 +77,7 @@ Decisiones que vale la pena mirar:
 - **Transacciones sin TypeORM en la aplicación.** `UnitOfWork.run()` es un puerto. Su
   implementación (`TypeOrmUnitOfWork`) guarda el EntityManager de la transacción en un
   `AsyncLocalStorage` y los repositorios lo usan sin enterarse.
-- **La base de datos también defiende las reglas** (cap. 5 del libro, _data testing_):
+- **La base de datos también defiende las reglas** (_data testing_):
   índice único de ISBN (BOOK-R2), `CHECK` de copias (BOOK-R4), índice único parcial de
   préstamos no devueltos (LOAN-R4), `UPDATE` condicional para la última copia (LOAN-R1),
   `pg_advisory_xact_lock` por correo (LOAN-R2) y, para la renovación, `CHECK` de
@@ -209,6 +209,39 @@ en este repo:
 Con este tamaño de proyecto tarda unos 15 segundos, pero crece con el código. Por eso
 corre en el pipeline nightly y no en cada PR.
 
+## Reglas de SonarQube y SonarLint en el lint (SonarJS)
+
+SonarQube revisa la calidad del código. Sus reglas para JavaScript y TypeScript se llaman
+**SonarJS**, y SonarSource (la empresa detrás de SonarQube) las publica gratis como plugin de ESLint:
+[`eslint-plugin-sonarjs`](https://www.npmjs.com/package/eslint-plugin-sonarjs). Son las mismas
+reglas que usan SonarQube y SonarLint, así que tienes sus hallazgos sin pagar ni levantar un
+servidor. Buscan tres cosas:
+
+- **Bugs**: código que probablemente hace algo distinto de lo que crees.
+- **Code smells** (código con "mal olor"): funciona, pero cuesta leerlo o cambiarlo sin romper algo.
+- **Security hotspots** (puntos de seguridad a revisar): código sensible que una persona debe
+  mirar para decidir si es seguro.
+
+Usamos la config `recommended` en `eslint.config.mjs`. Corre con `npm run lint` y en CI en la
+etapa 2 (job `calidad-backend`): un hallazgo hace fallar el PR. Al activarla encontró 6:
+
+| Regla                       | Dónde                                          | Qué se hizo                                                                                |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `super-linear-regex`        | `templateToRegExp`                             | `/\{[^}]+\}/` pasó a `/\{[^{}]+\}/`. Con 50.000 `{` sin cerrar tardaba 3,8 s y ahora 0 ms  |
+| `cognitive-complexity`      | `findNulCharacter`                             | Tenía complejidad 25 (el máximo es 15). Se separó en dos funciones                         |
+| `no-nested-conditional` (3) | `fieldOf`, `messageFor` y el fake de préstamos | Ternarios dentro de ternarios pasaron a `if`                                               |
+| `no-empty-test-file`        | `test/fakes/in-memory-repositories.spec.ts`    | Falso positivo: los tests vienen de funciones importadas. Se desactivó solo en ese archivo |
+
+La **complejidad cognitiva** mide cuánto cuesta entender una función: suma un punto por cada
+`if`, `for` o `catch`, y más si están unos dentro de otros. Si una regla no aplica, se desactiva
+solo donde no aplica y con un comentario que explica por qué, como con `eslint-plugin-security`.
+
+**En el editor.** VS Code (con la extensión ESLint) y Zed (trae ESLint) muestran estos hallazgos
+mientras escribes. Si no ves nada, abre la carpeta `backend/` y no la raíz del repo, o en VS Code
+agrega `"eslint.workingDirectories": [{ "mode": "auto" }]` a tu configuración. Para VS Code y
+JetBrains existe además la extensión gratuita **SonarQube for IDE** (antes SonarLint): explica
+cada regla con ejemplos y trae algunas reglas más. Lo que decide si el PR pasa es `npm run lint`.
+
 ## Imagen Docker
 
 El contexto de build es la raíz del repo, porque el contrato vive en `specs/`:
@@ -226,6 +259,7 @@ usuario `node` (no root), `HEALTHCHECK` contra `/api/health` y migraciones al in
 1. Escribe la regla con ID en la spec de la feature (por ejemplo `LOAN-R8`).
 2. Si cambia la API, cambia primero `specs/api/openapi.yaml`.
 3. Actualiza el `SPEC.md` de cada capa que cambia (tabla regla, dónde, test).
-4. Propón la lista de casos (regla, capa, partición) y espera aprobación. Luego escribe los
-   tests que fallan, en la capa más baja posible.
+4. Escribe pruebas que cubran flujos reales o las reglas de la spec, en la capa más baja
+   posible. Calidad antes que cantidad (constitución P4.7): cada prueba debe poder fallar ante
+   un error real. Escríbelas primero y comprueba que fallan.
 5. Implementa hasta que `lint`, `typecheck`, `test:arch` y todos los `test:*` queden en verde.

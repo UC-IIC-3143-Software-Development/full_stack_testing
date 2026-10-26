@@ -42,7 +42,7 @@ Pedir un libro prestado desde su detalle, buscar los préstamos de un correo, de
 
 ## Cómo se prueba esta capa
 
-- Con el mock server de Node y el reloj fijo `2026-03-02T12:00:00Z`: `carla@uc.cl` tiene un préstamo
+- Con el mock server de Node y la fecha fija de prueba `2026-03-02T12:00:00Z`: `carla@uc.cl` tiene un préstamo
   activo, uno vencido y uno devuelto (`src/mocks/fixtures.ts`).
 - Cada 409 de UI-LOAN-4 y de UI-RENEW-2 se fuerza con `server.use()` en su propio test.
 - El préstamo activo ya renovado de UI-RENEW-1 se siembra en la base fake con `mockStore.write()`

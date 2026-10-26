@@ -1,27 +1,26 @@
 # Pipeline de CI con DevSecOps
 
 Este documento explica el pipeline de `.github/workflows/ci.yml`: qué corre en cada
-etapa, qué detecta cada herramienta, por qué está en ese lugar y dónde aparece en el
-libro *Full Stack Testing* (Gayathri Mohan, 2.ª ed., O'Reilly 2026).
+etapa, qué detecta cada herramienta y por qué está en ese lugar.
 
 Solo hay **integración continua** (CI). No hay despliegue continuo (CD): el pipeline
 termina cuando el PR tiene toda la evidencia para decidir si se integra a `main`.
 
 ## Idea central: dos ciclos de feedback
 
-El libro propone separar las pruebas en dos ciclos (cap. 4, p. 126 a 128):
+Las pruebas se separan en dos ciclos:
 
 1. **Ciclo rápido** sobre el código estático: lint, tipos, seguridad estática y tests
    que no necesitan desplegar nada (unitarios, integración con contenedores, E2E con
    mock server). Debe tardar "lo que tarda una taza de té".
 2. **Ciclo lento** sobre la aplicación construida y corriendo: pruebas de sistema,
-   DAST, rendimiento y accesibilidad contra el stack real.
+   DAST y rendimiento contra el stack real.
 
 El ciclo lento espera a que pase toda la calidad de la etapa 2 (lint, tipos, arquitectura,
-contrato, trazabilidad y lint de infraestructura) y los unitarios de la etapa 5: no tiene
+contrato, trazabilidad y lint del pipeline) y los unitarios de la etapa 5: no tiene
 sentido construir y atacar una imagen cuyo código no compila, rompe el contrato o no pasa los
-unitarios. El resto del ciclo rápido (secretos, SAST, dependencias, integración y E2E con mock
-server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Resultado del pipeline".
+unitarios. El resto del ciclo rápido (secretos, SAST, dependencias, SonarQube, integración y E2E con
+mock server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Resultado del pipeline".
 
 ```
  PR abierto o push
@@ -31,22 +30,22 @@ server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Result
  │ 0 · Cambios  │  ¿qué carpetas tocó el PR? (dorny/paths-filter)
  └──────┬───────┘
         │      CICLO RÁPIDO: corren en paralelo, sin desplegar nada
-        ├──────────────────────────────────────────────────────────────────┐
-        │  1 · Secretos ............ gitleaks sobre todo el historial      │
+        ├───────────────────────────────────────────────────────────────────┐
+        │  1 · Secretos ............ gitleaks sobre todo el historial       │
         │  2 · Calidad y spec ...... ESLint, Prettier, tsc, dependency-     │
         │                            cruiser, Spectral, oasdiff, api:check, │
-        │                            spec-trace, hadolint, actionlint,      │
-        │                            zizmor                                 │
-        │  3 · SAST ................ Semgrep (registro + .semgrep/), CodeQL │
-        │  4 · Dependencias (SCA) .. dependency review, npm audit, Trivy fs │
+        │                            spec-trace, actionlint, zizmor         │
+        │  3 · SAST ................ Semgrep (registro + .semgrep/)         │
+        │  4 · Dependencias (SCA) .. Trivy fs (vulnerabilidades y misconfig)│
         │  5 · Unitarios ........... Jest (backend), Vitest + MSW (frontend)│
+        │  5 · SonarQube efímero ... calidad, cobertura y quality gate      │
         │  6 · Integración backend . Testcontainers + supertest vs OpenAPI  │
         │  7 · E2E con mock server . Playwright + MSW (sin backend)         │
-        ├──────────────────────────────────────────────────────────────────┘
+        ├───────────────────────────────────────────────────────────────────┘
         │      CICLO LENTO: necesita toda la etapa 2 y la 5 en verde
         ▼
- ┌────────────────────────────┐     ┌──────────────────────────────────────┐
- │ 8 · Build e imágenes       │────►│ 9 · Sistema                          │
+ ┌────────────────────────────┐     ┌───────────────────────────────────────┐
+ │ 8 · Build e imágenes       │────►│ 9 · Sistema                           │
  │   docker compose build     │     │   seed, Playwright @smoke, smoke de  │
  │   Trivy image, SBOM        │     │   la API, Schemathesis, k6,          │
  │   docker save (artefacto)  │     │   Lighthouse CI                      │
@@ -70,46 +69,51 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 
 ## Etapas en detalle
 
-| Etapa | Job | Herramientas | Qué detecta | Falla si | Libro |
-| --- | --- | --- | --- | --- | --- |
-| 0 | `cambios` | dorny/paths-filter | Qué apps tocó el PR | nunca | cap. 4 |
-| 1 | `secretos` | gitleaks (CLI en Docker) | Llaves, tokens y contraseñas en cualquier commit | hay un hallazgo | p. 226 y 238 |
-| 2 | `calidad-backend`, `calidad-frontend` | ESLint, Prettier, `tsc`, dependency-cruiser | Errores de estilo y tipos, imports que rompen las capas (ARCH-R1 a ARCH-R8) | cualquier error | p. 315 a 317 |
-| 2 | `contrato-openapi` | Spectral, oasdiff | Contrato incompleto o inconsistente, cambios que rompen clientes | error de Spectral o cambio breaking | p. 70 y 107 |
-| 2 | `trazabilidad` | `tools/spec-trace.mjs`, tests de tools | Reglas sin tests, tests huérfanos, IDs inexistentes, más de 6 tests por regla y capa | cualquiera de esos casos | p. 72 y 114 |
-| 2 | `lint-infra` | hadolint, actionlint (con shellcheck), zizmor | Dockerfiles inseguros, workflows con errores o inyección de comandos | advertencia o hallazgo | p. 317 |
-| 3 | `semgrep` | Semgrep `p/default`, `p/typescript`, `p/nodejs`, `p/owasp-top-ten` y `.semgrep/rules.yml` | Patrones vulnerables y violaciones de nuestras specs (reloj, SQL, fetch, XSS, console.log) | hallazgo de severidad ERROR | p. 225 |
-| 3 | `codeql` | CodeQL `security-extended` | Flujos de datos peligrosos (de la entrada a una consulta, por ejemplo) | nunca: es informativo y deja los hallazgos en la pestaña Security | p. 225 |
-| 4 | `dependencias` | dependency review, `npm audit --omit=dev` | Dependencias nuevas o actuales con vulnerabilidades conocidas | npm audit con severidad high o mayor. Dependency review es informativo hasta activar Dependency graph en el repo | p. 216 y 226 |
-| 4 | `trivy-fs` | Trivy fs | Vulnerabilidades en lockfiles, secretos y misconfiguraciones | secreto o CRITICAL con parche | p. 226 |
-| 5 | `unit-backend`, `unit-frontend` | Jest, Vitest, Testing Library, MSW | Reglas de negocio y componentes, sin mocks (fakes en memoria) | un test falla | p. 67 y 103 |
-| 6 | `integracion-backend` | Jest + Testcontainers (PostgreSQL) + supertest | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI | un test falla | p. 179 |
-| 7 | `e2e-frontend` | Playwright + playwright-bdd + MSW | Flujos de usuario, regresión visual, colores, posición, accesibilidad | un test falla | p. 183 a 195 |
-| 8 | `imagenes` | Docker Compose, Trivy image, CycloneDX | Vulnerabilidades y secretos dentro de la imagen, SBOM | secreto o CRITICAL con parche | p. 226 |
-| 9 | `sistema` | seed, Playwright `@smoke`, `tools/api-smoke.mjs`, Schemathesis, k6, Lighthouse CI | El sistema completo responde, el backend cumple el contrato con datos generados, rendimiento y calidad web | un test falla o no se cumplen los umbrales | p. 128, 250 y 270 |
-| 9 | `dast` | OWASP ZAP baseline y API scan | Cabeceras faltantes, inyección, XSS en la app corriendo | alerta High o regla FAIL | p. 227 y 229 |
-| 10 | `evidencia` | `tools/evidence/*` | Nada: resume todo en el PR | nunca bloquea | p. 121 |
+| Etapa | Job                                   | Herramientas                                                                                | Qué detecta                                                                                                                                                                                                                  | Falla si                                   |
+| ----- | ------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 0     | `cambios`                             | dorny/paths-filter                                                                          | Qué apps tocó el PR                                                                                                                                                                                                          | nunca                                      |
+| 1     | `secretos`                            | gitleaks (CLI en Docker)                                                                    | Llaves, tokens y contraseñas en cualquier commit                                                                                                                                                                             | hay un hallazgo                            |
+| 2     | `calidad-backend`, `calidad-frontend` | ESLint, Prettier, `tsc`, dependency-cruiser                                                 | Errores de estilo y tipos, imports que rompen las capas (ARCH-R1 a ARCH-R8)                                                                                                                                                  | cualquier error                            |
+| 2     | `contrato-openapi`                    | Spectral, oasdiff                                                                           | Contrato incompleto o inconsistente, cambios que rompen clientes                                                                                                                                                             | error de Spectral o cambio breaking        |
+| 2     | `trazabilidad`                        | `tools/spec-trace.mjs`, tests de tools                                                      | Reglas sin tests, tests huérfanos, IDs inexistentes, más de 6 tests por regla y capa                                                                                                                                         | cualquiera de esos casos                   |
+| 2     | `lint-infra`                          | actionlint (con shellcheck), zizmor                                                         | Workflows con errores, permisos excesivos o inyección de comandos                                                                                                                                                            | error o hallazgo                           |
+| 3     | `semgrep`                             | Semgrep `p/default`, `p/typescript`, `p/nodejs`, `p/owasp-top-ten` y `.semgrep/rules.yml`   | Patrones vulnerables y violaciones de nuestras specs (reloj, SQL, fetch, XSS, console.log)                                                                                                                                   | hallazgo de severidad ERROR                |
+| 4     | `trivy-fs`                            | Trivy fs (`--scanners vuln,misconfig`)                                                      | Dependencias con vulnerabilidades conocidas (lockfiles) y misconfiguraciones de Dockerfiles y `docker-compose.yml`                                                                                                           | CRITICAL con parche                        |
+| 5     | `unit-backend`, `unit-frontend`       | Jest, Vitest, Testing Library, MSW                                                          | Reglas de negocio y componentes, sin mocks (fakes en memoria)                                                                                                                                                                | un test falla                              |
+| 5     | `sonarqube`                           | SonarQube Community en un contenedor temporal, sonar-scanner-cli, `tools/sonarqube/run.mjs` | Bugs, vulnerabilidades, code smells, security hotspots, cobertura y duplicación de todo el repo. En un PR, el código nuevo y un comentario del bot con el resultado ([detalle](#código-nuevo-en-el-pr-y-el-bot-que-comenta)) | la quality gate falla                      |
+| 6     | `integracion-backend`                 | Jest + Testcontainers (PostgreSQL) + supertest                                              | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI                                                                                                                                                  | un test falla                              |
+| 7     | `e2e-frontend`                        | Playwright + playwright-bdd + MSW                                                           | Flujos de usuario, regresión visual, colores, posición, accesibilidad                                                                                                                                                        | un test falla                              |
+| 8     | `imagenes`                            | Docker Compose, Trivy image (`--scanners vuln`), CycloneDX                                  | Vulnerabilidades dentro de la imagen, SBOM                                                                                                                                                                                   | CRITICAL con parche                        |
+| 9     | `sistema`                             | seed, Playwright `@smoke`, `tools/api-smoke.mjs`, Schemathesis, k6, Lighthouse CI           | El sistema completo responde, el backend cumple el contrato con datos generados, rendimiento y calidad web                                                                                                                   | un test falla o no se cumplen los umbrales |
+| 9     | `dast`                                | OWASP ZAP baseline y API scan                                                               | Cabeceras faltantes, inyección, XSS en la app corriendo                                                                                                                                                                      | alerta High o regla FAIL                   |
+| 10    | `evidencia`                           | `tools/evidence/*`                                                                          | Nada: resume todo en el PR                                                                                                                                                                                                   | nunca bloquea                              |
 
 ## Glosario DevSecOps (para la diapositiva)
 
-| Sigla | Qué es | Cuándo mira | Ejemplo en este repo |
-| --- | --- | --- | --- |
-| **Secretos** | Busca credenciales en el código y en el historial de git | antes del commit (hook) y en cada PR | gitleaks, Trivy secret |
-| **SAST** | *Static Application Security Testing*: analiza el código fuente sin ejecutarlo | en cada PR | Semgrep, CodeQL |
-| **SCA** | *Software Composition Analysis*: vulnerabilidades y licencias de las dependencias | en cada PR y con Dependabot | dependency review, npm audit, Trivy fs |
-| **IaC y pipeline** | Revisa la infraestructura como código y los propios workflows | en cada PR | hadolint, Trivy misconfig, actionlint, zizmor |
-| **Contenedores** | Vulnerabilidades del sistema operativo y librerías dentro de la imagen | después del build | Trivy image |
-| **SBOM** | *Software Bill of Materials*: inventario de todo lo que trae la imagen | después del build | CycloneDX con Trivy |
-| **DAST** | *Dynamic Application Security Testing*: ataca la app corriendo, como caja negra | con el stack levantado | OWASP ZAP |
-| **Fuzzing de API** | Genera miles de requests desde el contrato buscando respuestas que no cumplen | con el stack levantado | Schemathesis |
+Hay una sola herramienta por tipo de análisis: dos herramientas que revisan lo mismo duplican
+hallazgos y minutos de CI sin encontrar más problemas.
+
+| Sigla                 | Qué es                                                                                                  | Cuándo mira                                         | Ejemplo en este repo                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Secretos**          | Busca credenciales en el código y en el historial de git                                                | antes del commit (hook) y en cada PR                | gitleaks                                                                 |
+| **SAST**              | _Static Application Security Testing_: analiza el código fuente sin ejecutarlo                          | en cada PR                                          | Semgrep                                                                  |
+| **Calidad de código** | Bugs, code smells, duplicación y cobertura de todo el repo, con una quality gate que aprueba o reprueba | en el editor, en el lint y en cada PR               | SonarQube for IDE, eslint-plugin-sonarjs, SonarQube efímero              |
+| **SCA**               | _Software Composition Analysis_: vulnerabilidades y licencias de las dependencias                       | en cada PR (Dependabot propone las actualizaciones) | Trivy fs                                                                 |
+| **IaC y pipeline**    | Revisa la infraestructura como código y los propios workflows                                           | en cada PR                                          | Trivy misconfig (Dockerfiles y compose), actionlint y zizmor (workflows) |
+| **Contenedores**      | Vulnerabilidades del sistema operativo y librerías dentro de la imagen                                  | después del build                                   | Trivy image                                                              |
+| **SBOM**              | _Software Bill of Materials_: inventario de todo lo que trae la imagen                                  | después del build                                   | CycloneDX con Trivy                                                      |
+| **DAST**              | _Dynamic Application Security Testing_: ataca la app corriendo, como caja negra                         | con el stack levantado                              | OWASP ZAP                                                                |
+| **Accesibilidad**     | Reglas WCAG automatizables en cada pantalla                                                             | en cada PR (etapa 7)                                | axe con Playwright                                                       |
+| **Fuzzing de API**    | Genera miles de requests desde el contrato buscando respuestas que no cumplen                           | con el stack levantado                              | Schemathesis                                                             |
 
 ```
           SHIFT LEFT: mientras más a la izquierda, más barato corregir
  ◄──────────────────────────────────────────────────────────────────────────
   editor y      pre-commit      PR (ciclo rápido)        PR (ciclo lento)
   agente IA     .githooks/      secretos, SAST, SCA,     imagen, sistema,
-  (CLAUDE.md)   gitleaks,       lint, unit, contrato,    DAST, rendimiento
-                Prettier        E2E con mocks
+  (CLAUDE.md),  gitleaks,       lint, unit, SonarQube,   DAST, rendimiento
+  SonarQube     Prettier        contrato, E2E con mocks
+  for IDE
 ```
 
 ## Compuertas y umbrales
@@ -117,21 +121,191 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 Una compuerta es una condición explícita, versionada en el repo, que decide si el PR
 puede seguir. Ninguna depende del criterio de quien mira el log.
 
-| Compuerta | Umbral | Dónde se cambia |
-| --- | --- | --- |
-| Semgrep | 0 hallazgos ERROR | `.semgrep/rules.yml` y el paso "Compuerta" del job |
-| Trivy fs e imagen | 0 secretos, 0 CRITICAL que tengan parche | paso "Compuerta" de cada job |
-| dependency review | severidad high (informativo hasta activar Dependency graph en Settings, Security) | `fail-on-severity` |
-| npm audit | `--audit-level=high` en producción | job `dependencias` |
-| spec-trace | 6 tests por regla y capa como máximo, 0 huérfanos | `--max-per-layer` |
-| k6 | p95 menor a 500 ms y menos de 1 % de errores | `tools/perf/k6-smoke.js` |
-| Lighthouse | accesibilidad 0,95 y buenas prácticas 0,9 (error), rendimiento y SEO (aviso) | `frontend/lighthouserc.json` |
-| ZAP | 0 alertas High no ignoradas, 0 reglas FAIL | `tools/zap/rules.tsv` |
-| hadolint | 0 advertencias | `.hadolint.yaml` |
+| Compuerta                                       | Umbral                                                                                                                                                | Dónde se cambia                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Semgrep                                         | 0 hallazgos ERROR                                                                                                                                     | `.semgrep/rules.yml` y el paso "Compuerta" del job |
+| Trivy fs e imagen                               | 0 CRITICAL que tengan parche                                                                                                                          | paso "Compuerta" de cada job                       |
+| spec-trace                                      | 6 tests por regla y capa como máximo, 0 huérfanos                                                                                                     | `--max-per-layer`                                  |
+| SonarQube (quality gate en push a main)         | 0 bugs, 0 vulnerabilidades, cobertura mínima 80 %, máximo 3 % de líneas duplicadas, nota de mantenibilidad A                                          | `QUALITY_GATE` en `tools/sonarqube/run.mjs`        |
+| SonarQube (quality gate en un PR, código nuevo) | notas A de confiabilidad, seguridad y mantenibilidad, cobertura mínima 80 % y máximo 3 % de líneas duplicadas en el código nuevo                      | `QUALITY_GATE_PR` en `tools/sonarqube/run.mjs`     |
+| k6                                              | p95 menor a 500 ms y menos de 1 % de errores                                                                                                          | `tools/perf/k6-smoke.js`                           |
+| Lighthouse                                      | buenas prácticas 0,9 (error), rendimiento y SEO (aviso). Sin accesibilidad: Lighthouse usa axe por debajo y axe ya corre con Playwright en la etapa 7 | `frontend/lighthouserc.json`                       |
+| ZAP                                             | 0 alertas High no ignoradas, 0 reglas FAIL                                                                                                            | `tools/zap/rules.tsv`                              |
 
 Se bloquea solo lo que tiene parche o es claramente un error. Una vulnerabilidad
 CRITICAL sin versión corregida se informa en el PR, pero no detiene al equipo: no hay
 nada que el equipo pueda hacer hoy más que documentarla.
+
+## SonarQube efímero (etapa 5)
+
+### Qué es SonarQube
+
+SonarQube lee el código sin ejecutarlo (análisis estático) y busca tres tipos de problemas:
+
+- **Bugs**: errores que harán que el programa se comporte mal, por ejemplo una condición que
+  siempre es verdadera o un `if` cuyas dos ramas hacen exactamente lo mismo.
+- **Vulnerabilidades**: código que un atacante podría aprovechar.
+- **Code smells** ("malos olores" del código): código que funciona pero es difícil de leer o
+  de cambiar, como una función muy larga o un `if` dentro de otro `if` dentro de otro. Hoy no es
+  un error, pero hace más probable que alguien introduzca uno mañana.
+
+Además marca los **security hotspots** (código sensible para la seguridad que una persona debe
+revisar, como una expresión regular que podría tardar demasiado con ciertos textos), mide la
+**cobertura** con el lcov que dejan los tests unitarios y la **duplicación** (bloques copiados y
+pegados). Con eso calcula una nota de la A (mejor) a la E para confiabilidad, seguridad y
+mantenibilidad.
+
+### Qué es una quality gate
+
+Es la lista de condiciones mínimas que el código debe cumplir para aprobar, como la nota mínima
+de un ramo: si una condición no se cumple, el job falla y el PR no se puede integrar. La nuestra
+está en `QUALITY_GATE` dentro de [`tools/sonarqube/run.mjs`](../tools/sonarqube/run.mjs):
+
+| Condición                        | Umbral      | Por qué                                                                                 |
+| -------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| Bugs                             | 0           | Un bug que SonarQube ya encontró se corrige antes de integrar                           |
+| Vulnerabilidades                 | 0           | Un atacante podría aprovecharla, así que tampoco se integra                             |
+| Cobertura de los tests unitarios | mínimo 80 % | Hoy es cerca de 86 % (líneas y ramas juntas). El umbral evita retrocesos, no es la meta |
+| Líneas duplicadas                | máximo 3 %  | Copiar y pegar obliga a corregir el mismo error en varios lugares                       |
+| Nota de mantenibilidad           | A           | Corregir los code smells debe tomar menos del 5 % de lo que costó escribir el código    |
+
+En push a main las condiciones miran **el código completo**: esa corrida es un proyecto nuevo y
+no hay análisis anterior con qué comparar. En un PR la quality gate es otra y mira solo el código
+nuevo (ver la sección siguiente).
+
+La cobertura se mide sobre las mismas carpetas que miden Jest y Vitest (dominio y aplicación en
+el backend, componentes y dominio en el frontend). Infraestructura, presentación y rutas se
+prueban con integración, contrato y E2E, que no generan lcov. Qué se analiza, qué cuenta como
+test y qué queda fuera está en [`sonar-project.properties`](../sonar-project.properties).
+
+### Código nuevo en el PR y el bot que comenta
+
+**Código nuevo** son las líneas que el PR agrega o cambia respecto de la rama base. La idea
+("clean as you code") es que el código que ya estaba en main no bloquee tu PR, pero lo que tú
+escribes salga limpio. Con el tiempo, todo el código pasa por esa vara.
+
+SonarQube Community no trae análisis de PR ni comentarios en el PR (eso es de las ediciones
+pagadas y de SonarQube Cloud). Por eso `run.mjs`, cuando recibe `BASE_SHA` y `HEAD_SHA`, hace
+**dos análisis** en el mismo SonarQube temporal:
+
+1. `git checkout` de la merge base (el commit de main donde nació la rama del PR) y análisis
+   como versión `base`, sin cobertura. El análisis lleva la fecha de ese commit
+   (`sonar.projectDate`).
+2. Vuelta al HEAD del PR, período de código nuevo `PREVIOUS_VERSION` por API
+   (`api/new_code_periods/set`) y análisis como versión `pr`, con la cobertura de los unitarios.
+3. Con git activado (`sonar.scm.disabled=false`), SonarQube lee `git blame`: una línea es nueva
+   si su commit es posterior al análisis `base`. Por eso el checkout trae la historia completa
+   (`fetch-depth: 0`).
+
+Las dos corridas usan el `sonar-project.properties` del HEAD (`-Dproject.settings`), porque la
+base puede no tenerlo o tener otra versión. ¿Por qué no basta un análisis? Porque SonarQube
+necesita un análisis anterior para saber qué cambió. Sin la base, todo el código sería "viejo" y
+no habría nada nuevo que medir.
+
+La quality gate del PR (`QUALITY_GATE_PR`) pide en el código nuevo:
+
+| Condición (código nuevo)             | Umbral      |
+| ------------------------------------ | ----------- |
+| Nota de confiabilidad (bugs)         | A           |
+| Nota de seguridad (vulnerabilidades) | A           |
+| Nota de mantenibilidad (code smells) | A           |
+| Cobertura de los tests unitarios     | mínimo 80 % |
+| Líneas duplicadas                    | máximo 3 %  |
+
+Con menos de 20 líneas nuevas, SonarQube no evalúa cobertura ni duplicación: con tan pocas
+líneas, un solo `if` sin test movería mucho el porcentaje.
+
+El resultado queda en `reports/sonarqube/pr.json` y `pr.md` (artefacto `sonarqube`). En el mismo
+job, un paso con `actions/github-script` publica `pr.md` como comentario del PR titulado
+**"SonarQube · código nuevo de este PR"**: estado de la quality gate, las tres notas con su color
+(🟢 A, 🟡 B o C, 🟠 D, 🔴 E), cobertura y duplicación del código nuevo y la tabla de defectos
+nuevos con link al archivo y la línea en el último commit del PR. Si no hay defectos nuevos, lo
+dice. El comentario lleva el marcador `<!-- sonarqube-pr -->` y se actualiza en cada push (no se
+acumulan comentarios). Se publica aunque la quality gate falle, y el job queda en rojo igual.
+En un PR desde un fork no se comenta, porque GitHub no le da permiso de escritura. El armado del
+comentario es una función pura (`tools/sonarqube/pr-report.mjs`) con tests y un ejemplo de
+respuestas de la API en `tools/__fixtures__/sonarqube/`.
+
+En push a main hay un solo análisis de todo el código con `QUALITY_GATE`, sin git.
+
+Un detalle: la cobertura viene de los artefactos de `unit-backend` y `unit-frontend`, que corren
+sobre el merge del PR con main. Si main cambió los mismos archivos que tu PR, las líneas pueden
+no calzar del todo. Actualiza tu rama con main y vuelve a correr.
+
+### Por qué efímero
+
+SonarQube es un servidor: necesita una base de datos y un motor de búsqueda (Elasticsearch).
+Tener uno encendido para el curso cuesta dinero y trabajo (actualizarlo, respaldarlo, protegerlo).
+En vez de eso, el job lo levanta en un contenedor dentro del mismo runner de GitHub Actions, lo
+usa unos minutos y lo borra. No hay nada que pagar ni nada que quede corriendo.
+
+```
+ runner de GitHub Actions (se destruye al terminar el job)
+ ┌──────────────────────────────────────────────────────────────────────────┐
+ │ lcov de unit-backend y unit-frontend (artefactos de la etapa 5)          │
+ │        │                                                                 │
+ │        ▼                                                                 │
+ │ tools/sonarqube/run.mjs                                                  │
+ │   1. docker run sonarqube (Community, gratis)    solo en 127.0.0.1       │
+ │   2. espera /api/system/status = UP                                      │
+ │   3. contraseña aleatoria para admin, token y quality gate por API       │
+ │   4. docker run sonar-scanner-cli con sonar-project.properties           │
+ │      (en un PR: primero la base y después el HEAD)                       │
+ │   5. quality gate, métricas e issues a reports/sonarqube/summary.json    │
+ │      (en un PR: código nuevo a pr.json y pr.md, el bot lo comenta)       │
+ │   6. docker rm: el contenedor desaparece                                 │
+ └────────┬─────────────────────────────────────────────────────────────────┘
+          ▼
+ artefacto sonarqube ──► etapa 10: sección "Calidad de código" del comentario del PR
+```
+
+La contraseña de admin se cambia por una aleatoria (y se oculta en el log con `::add-mask::`),
+el token del scanner viaja por variable de entorno y el puerto solo escucha en `127.0.0.1`: nadie
+más puede entrar mientras corre. Las imágenes van fijadas por versión y digest, como el resto
+del pipeline.
+
+Lo que se pierde: no hay historial entre corridas ni gráficos de tendencia, y la interfaz web
+desaparece con el job. La evidencia que queda es la sección del comentario del PR, el resumen
+del job y el artefacto `sonarqube`. Para mirar la interfaz completa, córrelo en tu máquina con
+`--keep`.
+
+### SonarQube for IDE, SonarJS en ESLint, SonarQube y SonarQube Cloud
+
+Las cuatro usan las reglas de SonarJS para JavaScript y TypeScript. Cambian dónde corren y qué
+ven.
+
+|                 | SonarQube for IDE (antes SonarLint) | eslint-plugin-sonarjs (etapa 2)           | SonarQube efímero (etapa 5)                         | SonarQube Cloud                                                           |
+| --------------- | ----------------------------------- | ----------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| Dónde corre     | en tu editor (VS Code, JetBrains)   | dentro de ESLint, con `npm run lint`      | en un contenedor temporal del runner                | en los servidores de Sonar                                                |
+| Cuándo te avisa | mientras escribes                   | cuando corres `npm run lint` y en cada PR | en cada PR                                          | en cada PR                                                                |
+| Qué ve          | el archivo abierto                  | archivo por archivo                       | todo el repo: cobertura, duplicación y quality gate | todo el repo, más historial y comentarios en el PR                        |
+| Qué necesitas   | instalar la extensión               | nada, viene en `npm ci`                   | nada, solo minutos de Actions                       | una cuenta, conectar la organización de GitHub y el secreto `SONAR_TOKEN` |
+| Costo           | gratis                              | gratis                                    | gratis                                              | gratis para repos públicos                                                |
+
+Usa SonarQube for IDE para corregir mientras escribes, el lint para no subir el problema y
+SonarQube en el PR para la foto completa. SonarQube Cloud sirve si quieres historial y no te
+molesta crear la cuenta. Aquí preferimos que el repo funcione sin cuentas ni secretos externos.
+
+### Correrlo en tu máquina
+
+```bash
+(cd backend && npm run test:unit) && (cd frontend && npm run test:unit)   # lcov en reports/coverage
+node tools/sonarqube/run.mjs                 # puerto 19000, borra todo al terminar
+node tools/sonarqube/run.mjs --port 19500    # si el 19000 está ocupado
+cat reports/sonarqube/summary.md
+
+# Modo PR en tu rama: necesita tus cambios en commits (hace git checkout de la base)
+BASE_SHA=origin/main HEAD_SHA=HEAD node tools/sonarqube/run.mjs
+cat reports/sonarqube/pr.md
+
+# Para mirar la interfaz web: elige tu contraseña y deja el contenedor arriba
+SONAR_ADMIN_PASSWORD='UnaClaveLarga#2026' node tools/sonarqube/run.mjs --keep
+```
+
+Necesitas Docker con unos 3 GB de RAM libres. Las dos imágenes se descargan una vez (1,5 GB) y
+ocupan unos 2,5 GB en disco. Revisa que tengas espacio de sobra antes de partir: si el disco se
+llena a mitad del análisis, Docker Desktop puede quedar en modo de solo lectura y hay que
+reiniciarlo.
 
 ## Seguridad del propio pipeline
 
@@ -163,6 +337,8 @@ secretos de miles de repositorios en los logs. Por eso:
    contrato-backend/      contract-coverage.json
    api-smoke/             endpoints.json
    schemathesis/          junit.xml
+   sonarqube/             summary.json (quality gate, métricas e issues) y, en un PR,
+                          pr.json y pr.md (código nuevo, lo comenta el bot del job)
    semgrep/ trivy-*/ zap/ gitleaks/ lighthouse/ k6/ spec-trace/
             │
             ▼  etapa 10
@@ -180,18 +356,17 @@ PR cerrados (por ejemplo con un workflow programado).
 
 ## Otros workflows
 
-| Workflow | Cuándo | Qué hace |
-| --- | --- | --- |
-| `nightly.yml` | todos los días 06:00 UTC y manual | Mutation testing con Stryker (backend y frontend), flujos en Firefox y WebKit, ZAP full scan opcional |
-| `ai-review.yml` | en cada PR que no es borrador | Claude revisa el diff contra la constitución, la arquitectura y las specs. Requiere el secreto `ANTHROPIC_API_KEY` |
-| `ai-generate-tests.yml` | manual, eligiendo un `operationId` | Claude propone un plan de casos y tests de contrato, y abre un PR en borrador para revisión humana |
-| `visual-baselines.yml` | push a `main` que toca `frontend/tests/visual/` y manual | Genera las capturas de referencia en la imagen de Playwright de CI y las commitea en la rama. El commit del bot no dispara `ci.yml`: haz un push después para correr el pipeline |
+| Workflow                | Cuándo                                                   | Qué hace                                                                                                                                                                                                              |
+| ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nightly.yml`           | todos los días 06:00 UTC y manual                        | Mutation testing con Stryker (backend y frontend), flujos en Firefox y WebKit, ZAP full scan opcional                                                                                                                 |
+| `ai-review.yml`         | en cada PR que no es borrador                            | Gemini (Gemini CLI con `run-gemini-cli`) revisa el diff contra la constitución, la arquitectura y las specs, y publica un solo comentario en el PR. Requiere `GEMINI_API_KEY` como secreto o variable del repositorio |
+| `ai-generate-tests.yml` | manual, eligiendo un `operationId`                       | Gemini propone un plan de casos y tests de contrato, y abre un PR en borrador para revisión humana                                                                                                                    |
+| `visual-baselines.yml`  | push a `main` que toca `frontend/tests/visual/` y manual | Genera las capturas de referencia en la imagen de Playwright de CI y las commitea en la rama. El commit del bot no dispara `ci.yml`: haz un push después para correr el pipeline                                      |
 
 **¿Por qué mutation testing no corre en cada PR?** Stryker modifica el código (por
 ejemplo cambia `>` por `>=`) y ejecuta la suite completa por cada mutante. Con cientos
-de mutantes, tarda varias veces lo que tarda la suite normal. El libro lo resume así:
-"Mutation testing, though very effective, is time-consuming, so use it wisely" (p. 116).
-De noche no retrasa a nadie y su reporte muestra qué tests no verifican lo que creemos.
+de mutantes, tarda varias veces lo que tarda la suite normal. Es muy efectivo, pero caro:
+conviene usarlo con criterio. De noche no retrasa a nadie y su reporte muestra qué tests no verifican lo que creemos.
 
 ## Trunk based development vs Git Flow
 
@@ -213,18 +388,18 @@ De noche no retrasa a nadie y su reporte muestra qué tests no verifican lo que 
             PR      PR      PR      PR         cada PR pasa por el pipeline completo
 ```
 
-| | Git Flow | Trunk based development |
-| --- | --- | --- |
-| Ramas | `main`, `develop`, `release/*`, `feature/*`, `hotfix/*` | `main` y ramas cortas |
-| Vida de una rama | días o semanas | horas, máximo 2 días |
-| Integración | al final de la feature, con conflictos grandes | continua, conflictos chicos |
-| Funcionalidad a medias | se queda en su rama | se esconde con *feature flags* |
-| Rol del pipeline | se corre antes de cada release | es la red de seguridad de cada PR |
-| Cuándo conviene | software con versiones instaladas y varias versiones con soporte | servicios web con despliegues frecuentes |
+|                        | Git Flow                                                         | Trunk based development                  |
+| ---------------------- | ---------------------------------------------------------------- | ---------------------------------------- |
+| Ramas                  | `main`, `develop`, `release/*`, `feature/*`, `hotfix/*`          | `main` y ramas cortas                    |
+| Vida de una rama       | días o semanas                                                   | horas, máximo 2 días                     |
+| Integración            | al final de la feature, con conflictos grandes                   | continua, conflictos chicos              |
+| Funcionalidad a medias | se queda en su rama                                              | se esconde con _feature flags_           |
+| Rol del pipeline       | se corre antes de cada release                                   | es la red de seguridad de cada PR        |
+| Cuándo conviene        | software con versiones instaladas y varias versiones con soporte | servicios web con despliegues frecuentes |
 
 Este repo usa **trunk based development** (constitución P6): ramas cortas, PR con
-evidencia y `main` siempre verde. El libro advierte que una rama de feature de larga
-vida es un antipatrón (p. 122). Las métricas DORA (p. 144) miden justamente la
+evidencia y `main` siempre verde. Una rama de feature de larga vida es un antipatrón:
+acumula diferencias y se integra con dolor. Las métricas DORA miden justamente la
 frecuencia de despliegue y el tiempo desde el commit hasta producción, y ambas mejoran
 cuando se integra en pasos chicos.
 
@@ -237,7 +412,7 @@ npm run spec:trace                       # trazabilidad spec a tests
 npm run test:tools                       # tests de tools/
 git config core.hooksPath .githooks      # activa el hook pre-commit
 
-# Stack completo con reloj fijo, en puertos que no choquen con otros servicios
+# Stack completo con fecha fija de prueba, en puertos que no choquen con otros servicios
 CLOCK_FIXED_NOW=2026-03-02T12:00:00Z BACKEND_PORT=3101 FRONTEND_PORT=3100 DB_PORT=55432 \
   docker compose up -d --build --wait
 BASE_URL=http://localhost:3101 npm run seed:stack
@@ -250,8 +425,14 @@ docker compose down -v
 docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --config /repo/.gitleaks.toml
 docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --config .semgrep/rules.yml
 (cd .semgrep && semgrep --test .)        # tests de las reglas propias
+docker run --rm -v "$PWD:/src" -w /src aquasec/trivy:0.76.1 fs --scanners vuln,misconfig \
+  --skip-dirs tools/__fixtures__ .
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
 pipx run zizmor .github/
+
+# SonarQube efímero (necesita la cobertura de los unitarios)
+(cd backend && npm run test:unit) && (cd frontend && npm run test:unit)
+node tools/sonarqube/run.mjs             # resumen en reports/sonarqube/summary.md
 ```
 
 Si en tu Docker Desktop `--network host` no llega a los puertos de tu máquina, quita esa

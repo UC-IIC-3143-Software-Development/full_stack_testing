@@ -1,15 +1,17 @@
 # Agente que PROPONE tests de contrato para una operación del OpenAPI.
 #
-# Respeta la constitución (P4.7): la IA no genera tests en lote. Primero escribe un
-# plan con los casos (partición, código HTTP, capa e ID de regla, máximo 6 por regla),
-# después propone los tests y abre un PR en borrador para que una persona apruebe el
-# plan antes de revisar el código. Nada se integra sin revisión humana.
+# Respeta la constitución (P4.7, calidad antes que cantidad): primero escribe un plan con
+# los casos (partición, código HTTP, capa e ID de regla, máximo 6 por regla), después
+# propone los tests y abre un PR en borrador. Una persona revisa que cada prueba cubra un
+# flujo real o una regla de la spec. Nada se integra sin revisión humana.
 #
-# Inspirado en el libro Full Stack Testing, cap. 4, "Claude in GitHub Actions"
-# (p. 139 a 143), que genera tests desde un OpenAPI y abre un PR.
+# Usa Gemini CLI con la acción oficial google-github-actions/run-gemini-cli. Gemini lee
+# GEMINI.md, AGENTS.md y CLAUDE.md (context.fileName en settings).
 #
 # Requisitos:
-#   - Secreto ANTHROPIC_API_KEY (sin él, el job termina en verde con un aviso).
+#   - GEMINI_API_KEY como secreto o como variable del repositorio (sin ella, el job termina
+#     en verde con un aviso). Una variable no se enmascara en los logs: en un proyecto real
+#     usa un secreto. El modelo se cambia con la variable GEMINI_MODEL (por defecto flash).
 #   - Settings, Actions, General: "Allow GitHub Actions to create and approve pull requests".
 # Ojo: un PR abierto con GITHUB_TOKEN no dispara otros workflows. Para correr el CI
 # sobre la propuesta, haz un push al branch o ciérralo y ábrelo de nuevo.
@@ -47,42 +49,64 @@ jobs:
       contents: write # crear la rama con la propuesta
       pull-requests: write # abrir el PR en borrador
     env:
-      HAS_ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+      # Los secretos no se pueden usar en un if: se traduce a una variable del job
+      HAS_GEMINI_KEY: ${{ (secrets.GEMINI_API_KEY || vars.GEMINI_API_KEY) != '' }}
       OPERATION_ID: ${{ inputs.operationId }}
     steps:
       - name: Aviso si no hay API key
-        if: env.HAS_ANTHROPIC_KEY != 'true'
+        if: env.HAS_GEMINI_KEY != 'true'
         run: |
           {
             echo "### Propuesta de tests con IA omitida"
             echo ""
-            echo "No existe el secreto ANTHROPIC_API_KEY. Créalo en Settings, Secrets and variables, Actions."
+            echo "No existe GEMINI_API_KEY como secreto ni como variable. Créala en Settings, Secrets and variables, Actions."
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice::Propuesta omitida: falta el secreto ANTHROPIC_API_KEY."
+          echo "::notice::Propuesta omitida: falta GEMINI_API_KEY."
+
+      - name: Ocultar la clave en los logs
+        if: env.HAS_GEMINI_KEY == 'true'
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_API_KEY || vars.GEMINI_API_KEY }}
+        run: echo "::add-mask::$GEMINI_KEY"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: env.HAS_ANTHROPIC_KEY == 'true'
+        if: env.HAS_GEMINI_KEY == 'true'
         with:
           persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: env.HAS_ANTHROPIC_KEY == 'true'
+        if: env.HAS_GEMINI_KEY == 'true'
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
       - name: Instalar dependencias del backend
-        if: env.HAS_ANTHROPIC_KEY == 'true'
+        if: env.HAS_GEMINI_KEY == 'true'
         working-directory: backend
         run: npm ci
 
-      - name: Proponer plan y tests con Claude
-        if: env.HAS_ANTHROPIC_KEY == 'true'
-        uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+      - name: Proponer plan y tests con Gemini
+        if: env.HAS_GEMINI_KEY == 'true'
+        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
+        env:
+          # Sin esto Gemini CLI puede ignorar .gemini/settings.json por la confianza de carpetas
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ github.token }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY || vars.GEMINI_API_KEY }}
+          settings: |-
+            {
+              "model": {
+                "name": "${{ vars.GEMINI_MODEL || 'flash' }}",
+                "maxSessionTurns": 40
+              },
+              "context": {
+                "fileName": ["GEMINI.md", "AGENTS.md", "CLAUDE.md"]
+              },
+              "tools": {
+                "exclude": ["web_fetch", "google_web_search"]
+              }
+            }
           prompt: |
             Operación objetivo: ${{ inputs.operationId }} (specs/api/openapi.yaml).
             Responde y escribe en español de Chile, con tuteo, sin guiones largos ni punto y coma.
@@ -113,12 +137,13 @@ jobs:
             Paso 3. Verifica que compila con `npm run typecheck` dentro de backend y que la
             trazabilidad sigue en verde con `node tools/spec-trace.mjs`.
             No modifiques specs/ ni código de producción.
-          claude_args: |
-            --max-turns 40
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(npm run typecheck:*),Bash(node tools/spec-trace.mjs:*)"
+
+      - name: Quitar los archivos de trabajo de Gemini CLI
+        if: env.HAS_GEMINI_KEY == 'true'
+        run: rm -rf .gemini gemini-artifacts
 
       - name: Abrir PR en borrador con la propuesta
-        if: env.HAS_ANTHROPIC_KEY == 'true'
+        if: env.HAS_GEMINI_KEY == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ github.token }}
@@ -126,6 +151,10 @@ jobs:
           commit-message: 'test(contrato): propuesta de IA para ${{ inputs.operationId }}'
           title: 'Propuesta de IA: tests de contrato para ${{ inputs.operationId }}'
           draft: true
+          # Solo el plan y los tests propuestos, nunca la configuración de Gemini CLI
+          add-paths: |
+            docs/propuestas-ia
+            backend/test/contract
           labels: |
             ia
             tests

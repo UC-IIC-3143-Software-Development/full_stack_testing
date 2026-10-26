@@ -4,7 +4,7 @@ import { BookScreen } from './BookScreen'
 
 export const metadata: Metadata = { title: 'Detalle del libro' }
 
-export default async function BookPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BookPage({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const { id } = await params
   return (
     <div className="stack">

@@ -51,7 +51,7 @@ describe('Contrato HTTP: renovar préstamo (SPEC-LIB-03)', () => {
 
   it('[RENEW-R3] renovar un préstamo vencido responde 409 LOAN_OVERDUE', async () => {
     const book = await createBook(running.http, CATALOG.ficciones, 1)
-    // Con el reloj fijo (2026-03-02) ningún préstamo creado por la API está vencido:
+    // Con la fecha fija de prueba (2026-03-02) ningún préstamo creado por la API está vencido:
     // se inserta uno que venció el 2026-02-15.
     const overdueId = '7c1d2e3f-4a5b-4c6d-8e7f-8a9b0c1d2e3f'
     await running.dataSource.query(

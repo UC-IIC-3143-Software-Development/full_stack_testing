@@ -1,8 +1,10 @@
 // ESLint (flat config): reglas de TypeScript con información de tipos, reglas de seguridad
-// (eslint-plugin-security, un SAST liviano que corre en segundos) y Prettier para el formato.
+// (eslint-plugin-security, un SAST liviano que corre en segundos), las reglas de SonarJS
+// (eslint-plugin-sonarjs, las mismas que usan SonarQube y SonarLint) y Prettier para el formato.
 import js from '@eslint/js'
 import prettier from 'eslint-config-prettier'
 import security from 'eslint-plugin-security'
+import sonarjs from 'eslint-plugin-sonarjs'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
@@ -11,6 +13,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   security.configs.recommended,
+  sonarjs.configs.recommended,
   {
     languageOptions: {
       globals: { ...globals.node, ...globals.jest },
@@ -62,6 +65,13 @@ export default tseslint.config(
       // Los tests leen y escriben reports/ y specs/ con rutas armadas desde __dirname.
       'security/detect-non-literal-fs-filename': 'off',
     },
+  },
+  {
+    // Falso positivo: los tests de este archivo vienen de bookRepositoryContract y
+    // loanRepositoryContract, que llaman a it por dentro. SonarJS solo busca it o test
+    // escritos directamente en el archivo y no ve los que trae una función importada.
+    files: ['test/fakes/in-memory-repositories.spec.ts'],
+    rules: { 'sonarjs/no-empty-test-file': 'off' },
   },
   {
     files: ['**/*.js', '**/*.cjs'],

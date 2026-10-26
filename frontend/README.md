@@ -72,20 +72,20 @@ elimina esa rama al compilar y el Dockerfile borra el Service Worker.
 
 ## Tipos de test
 
-| Script                | Tipo                       | Qué verifica                                                             | Dónde                                 |
-| --------------------- | -------------------------- | ------------------------------------------------------------------------ | ------------------------------------- |
-| `test:unit`           | Unit sin dobles            | Funciones puras del dominio (BOOK-R1, LOAN-R6, UI-LOAN-1)                | `src/shared/domain/*.test.ts`         |
-| `test:unit`           | Componentes                | Comportamiento visible con Testing Library y MSW                         | `src/features/**/*.test.tsx`          |
-| `test:contract`       | Contrato de mocks          | Respuestas MSW vs `openapi.yaml` (MOCK-R1, MOCK-R2)                      | `src/mocks/handlers.contract.test.ts` |
-| `test:e2e` (`flows`)  | Flujos BDD desde la spec   | Los escenarios de `specs/flows/*.feature`, con video y capturas          | `tests/e2e/steps/`                    |
-| `test:e2e` (`visual`) | Regresión visual           | Capturas comparadas con imágenes de referencia de Linux                  | `tests/visual/`                       |
-| `test:e2e` (`style`)  | Estilos computados         | Colores exactos de los tokens (`toHaveCSS`)                              | `tests/style/`                        |
-| `test:e2e` (`layout`) | Posiciones relativas       | Grilla de 3 y 1 columnas, insignia arriba a la derecha (`boundingBox`)   | `tests/layout/`                       |
-| `test:e2e` (`a11y`)   | Accesibilidad              | Cero violaciones WCAG A/AA con axe-core                                  | `tests/a11y/`                         |
-| `test:e2e:smoke`      | Smoke contra el stack real | Escenarios `@smoke` contra frontend, backend y PostgreSQL                | `E2E_BASE_URL`                        |
-| `test:lighthouse`     | Lighthouse CI              | Accesibilidad ≥ 0,95 y buenas prácticas ≥ 0,9 (rendimiento y SEO avisan) | `lighthouserc.json`                   |
-| `test:mutation`       | Mutation testing           | Calidad de los tests del dominio (Stryker, solo nightly)                 | `stryker.config.mjs`                  |
-| `test:arch`           | Arquitectura               | Reglas de dependencia entre capas                                        | `.dependency-cruiser.cjs`             |
+| Script                | Tipo                       | Qué verifica                                                           | Dónde                                 |
+| --------------------- | -------------------------- | ---------------------------------------------------------------------- | ------------------------------------- |
+| `test:unit`           | Unit sin dobles            | Funciones puras del dominio (BOOK-R1, LOAN-R6, UI-LOAN-1)              | `src/shared/domain/*.test.ts`         |
+| `test:unit`           | Componentes                | Comportamiento visible con Testing Library y MSW                       | `src/features/**/*.test.tsx`          |
+| `test:contract`       | Contrato de mocks          | Respuestas MSW vs `openapi.yaml` (MOCK-R1, MOCK-R2)                    | `src/mocks/handlers.contract.test.ts` |
+| `test:e2e` (`flows`)  | Flujos BDD desde la spec   | Los escenarios de `specs/flows/*.feature`, con video y capturas        | `tests/e2e/steps/`                    |
+| `test:e2e` (`visual`) | Regresión visual           | Capturas comparadas con imágenes de referencia de Linux                | `tests/visual/`                       |
+| `test:e2e` (`style`)  | Estilos computados         | Colores exactos de los tokens (`toHaveCSS`)                            | `tests/style/`                        |
+| `test:e2e` (`layout`) | Posiciones relativas       | Grilla de 3 y 1 columnas, insignia arriba a la derecha (`boundingBox`) | `tests/layout/`                       |
+| `test:e2e` (`a11y`)   | Accesibilidad              | Cero violaciones WCAG A/AA con axe-core                                | `tests/a11y/`                         |
+| `test:e2e:smoke`      | Smoke contra el stack real | Escenarios `@smoke` contra frontend, backend y PostgreSQL              | `E2E_BASE_URL`                        |
+| `test:lighthouse`     | Lighthouse CI              | Buenas prácticas ≥ 0,9, rendimiento y SEO avisan (a11y la revisa axe)  | `lighthouserc.json`                   |
+| `test:mutation`       | Mutation testing           | Calidad de los tests del dominio (Stryker, solo nightly)               | `stryker.config.mjs`                  |
+| `test:arch`           | Arquitectura               | Reglas de dependencia entre capas                                      | `.dependency-cruiser.cjs`             |
 
 ¿Por qué tres tipos de test "visuales"? Porque fallan por razones distintas:
 
@@ -104,7 +104,7 @@ Cada escenario graba un video (960x600) y una captura después de cada paso en
 `evidence/screenshots/<FLOW-ID>-<n>-<paso>.png`. Al final, `scripts/collect-evidence.mjs` escribe
 `evidence/manifest.json` (formato de `specs/architecture.md`) y el pipeline lo publica en el PR.
 
-Todos los tests de navegador usan `locale` es-CL, zona `America/Santiago` y el reloj fijo
+Todos los tests de navegador usan `locale` es-CL, zona `America/Santiago` y la fecha fija de prueba
 `2026-03-02T12:00:00Z` (`tests/support/clock.ts`). Por eso la fecha de devolución siempre es `16-03-2026`
 y, después de renovar (FLOW-PRE-04), `23-03-2026`.
 
@@ -141,8 +141,41 @@ La constitución (`specs/constitution.md`, P4) se verifica con herramientas, no 
 - Máximo 6 tests por regla y capa: particiones de equivalencia y valores límite, no variantes del mismo caso.
 - Cada test vive en la capa más baja que detecta el defecto. Por ejemplo, la validación del ISBN se
   prueba en `isbn.test.ts` y el flujo E2E solo verifica que el error se muestre.
+- Calidad antes que cantidad (P4.7): el avance no se mide por el número de tests. Cada test cubre un
+  flujo real o una regla de la spec. Si no fallaría ante ningún error real, no se agrega.
 - Stryker mide si los tests detectan cambios reales en el código. En este proyecto encontró que los
   dos ISBN válidos de ejemplo no distinguían el orden de los pesos 1 y 3, y se agregó un caso.
+
+## Reglas de SonarQube y SonarLint en el lint (SonarJS)
+
+SonarQube revisa la calidad del código. Sus reglas para JavaScript y TypeScript se llaman
+**SonarJS**, y SonarSource (la empresa detrás de SonarQube) las publica gratis como plugin de ESLint:
+[`eslint-plugin-sonarjs`](https://www.npmjs.com/package/eslint-plugin-sonarjs). Son las mismas
+reglas que usan SonarQube y SonarLint, así que tienes sus hallazgos sin pagar ni levantar un
+servidor. Buscan **bugs**, **code smells** (código que funciona, pero cuesta leer o cambiar) y
+**security hotspots** (código sensible que una persona debe revisar para decidir si es seguro).
+
+Usamos la config `recommended` en `eslint.config.mjs`, con información de tipos de TypeScript:
+sin ella, ESLint se salta en silencio las reglas que necesitan conocer los tipos (57 de las 230
+que activa `recommended`). Corre con `npm run lint` y en CI en la etapa 2 (job `calidad-frontend`):
+un hallazgo hace fallar el PR. Al activarla encontró 28 (sin información de tipos solo veía 4):
+
+| Regla                                                  | Cuántos | Qué se hizo                                                                                                        |
+| ------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `prefer-read-only-props`                               | 12      | Las props de cada componente quedaron como `Readonly<...>`: un componente no debe cambiar sus props                |
+| `deprecation`                                          | 8       | Los tipos de React 19 marcan `FormEvent` como obsoleto (ese evento no existe). `onSubmit` entrega un `SubmitEvent` |
+| `no-misleading-array-reverse` y `no-alphabetical-sort` | 4       | `sort()` cambia el arreglo original. Se usa `toSorted()` con `localeCompare`                                       |
+| `super-linear-regex`                                   | 1       | Una regex que tardaba mucho con muchos espacios seguidos se cambió por `split`                                     |
+| `no-os-command-from-path`                              | 2       | Punto a revisar en `scripts/`: buscar `npm` y `docker` en el PATH es intencional. Se dejó con un comentario        |
+| `regex-complexity`                                     | 1       | La regex de correo del mock es una copia exacta de la del backend (ajv-formats). Se dejó con un comentario         |
+
+Si una regla no aplica, se desactiva solo en esa línea con un comentario que explica por qué.
+
+**En el editor.** VS Code (con la extensión ESLint) y Zed (trae ESLint) muestran estos hallazgos
+mientras escribes. Si no ves nada, abre la carpeta `frontend/` y no la raíz del repo, o en VS Code
+agrega `"eslint.workingDirectories": [{ "mode": "auto" }]` a tu configuración. Para VS Code y
+JetBrains existe además la extensión gratuita **SonarQube for IDE** (antes SonarLint): explica
+cada regla con ejemplos y trae algunas reglas más. Lo que decide si el PR pasa es `npm run lint`.
 
 ## Docker
 

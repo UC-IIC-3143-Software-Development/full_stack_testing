@@ -27,7 +27,7 @@ async function borrow(email = 'ana@uc.cl') {
 
 describe('BorrowForm', () => {
   it('[UI-LOAN-1] confirma el préstamo y muestra la fecha de devolución dd-mm-aaaa', async () => {
-    // El mock server usa el reloj fijo 2026-03-02T12:00:00Z, más 14 días (LOAN-R3).
+    // El mock server usa la fecha fija de prueba 2026-03-02T12:00:00Z, más 14 días (LOAN-R3).
     await borrow()
     const status = await screen.findByRole('status')
     expect(await screen.findByText('Préstamo registrado')).toBeInTheDocument()

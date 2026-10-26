@@ -6,7 +6,7 @@ import { AvailabilityBadge } from './AvailabilityBadge'
 import styles from './BookCard.module.css'
 
 /** UI-CAT-1 a UI-CAT-3: tarjeta de un libro del catálogo. */
-export function BookCard({ book }: { book: Book }) {
+export function BookCard({ book }: Readonly<{ book: Book }>) {
   const titleId = useId()
   const soldOut = book.availableCopies === 0
 
