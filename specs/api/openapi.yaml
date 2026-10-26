@@ -25,7 +25,7 @@ tags:
   - name: books
     description: Catálogo de libros (SPEC-LIB-01)
   - name: loans
-    description: Préstamos (SPEC-LIB-02)
+    description: Préstamos y renovaciones (SPEC-LIB-02 y SPEC-LIB-03)
 paths:
   /api/health:
     get:
@@ -228,6 +228,41 @@ paths:
                 status: 409
                 code: ALREADY_RETURNED
                 detail: El préstamo ya fue devuelto
+  /api/loans/{loanId}/renew:
+    post:
+      operationId: renewLoan
+      tags: [loans]
+      summary: Renueva un préstamo por 7 días
+      description: |
+        Suma 7 días a dueAt e incrementa renewalCount (RENEW-R1). Solo una renovación por
+        préstamo (RENEW-R2) y solo si el préstamo está al día y no se ha devuelto (RENEW-R3).
+        Reglas en `specs/features/SPEC-LIB-03-renovacion.md`.
+      parameters:
+        - $ref: '#/components/parameters/LoanId'
+      responses:
+        '200':
+          description: Préstamo renovado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loan'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            No se puede renovar: ya se renovó (RENEW-R2), está vencido o ya se devolvió (RENEW-R3).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Conflict
+                status: 409
+                code: RENEWAL_LIMIT_REACHED
+                detail: El préstamo ya fue renovado
 components:
   parameters:
     BookId:
@@ -345,7 +380,7 @@ components:
     Loan:
       type: object
       additionalProperties: false
-      required: [id, bookId, bookTitle, borrowerEmail, loanedAt, dueAt, returnedAt, status]
+      required: [id, bookId, bookTitle, borrowerEmail, loanedAt, dueAt, returnedAt, status, renewalCount]
       properties:
         id:
           type: string
@@ -373,6 +408,12 @@ components:
           format: date-time
         status:
           $ref: '#/components/schemas/LoanStatus'
+        renewalCount:
+          type: integer
+          minimum: 0
+          maximum: 1
+          description: Veces que se renovó el préstamo (RENEW-R2).
+          example: 0
     LoanStatus:
       type: string
       description: |
@@ -434,3 +475,5 @@ components:
         - LOAN_LIMIT_REACHED
         - DUPLICATE_LOAN
         - ALREADY_RETURNED
+        - RENEWAL_LIMIT_REACHED
+        - LOAN_OVERDUE

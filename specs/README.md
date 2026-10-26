@@ -19,6 +19,7 @@ el contrato, después los tests (que fallan) y al final el código.
 | `api/openapi.yaml`               | Contrato de la API                                       |
 | `features/SPEC-LIB-01-catalogo.md` | Catálogo de libros                                     |
 | `features/SPEC-LIB-02-prestamos.md` | Préstamos                                             |
+| `features/SPEC-LIB-03-renovacion.md` | Renovar préstamo (feature del PR de ejemplo)        |
 | `flows/*.feature`                | Flujos de usuario ejecutables                            |
 | `templates/`                     | Plantillas para nuevas specs de feature y de capa        |
 
