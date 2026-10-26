@@ -34,9 +34,14 @@ export function ApiMockingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mockingEnabled) return
     let active = true
-    startWorker().then(() => {
-      if (active) setReady(true)
-    })
+    startWorker()
+      .then(() => {
+        if (active) setReady(true)
+      })
+      .catch((error: unknown) => {
+        // Sin mock server la app no puede cargar datos: se informa en vez de fallar en silencio.
+        console.error('No se pudo iniciar el mock server (MSW)', error)
+      })
     return () => {
       active = false
     }
