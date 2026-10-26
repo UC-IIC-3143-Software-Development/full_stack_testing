@@ -9,9 +9,9 @@
 | --- | --- | --- | :---: |
 | **0 · Detectar cambios** | qué apps tocó el PR (paths-filter) | ✅ `cambios` | ✅ |
 | **1 · Pre-commit y secretos** | gitleaks | ✅ `secretos` | ✅ |
-| **2 · Calidad y especificación** | lint, tipos, arquitectura, Spectral, oasdiff, spec-trace, hadolint, actionlint, zizmor | ✅ `calidad-backend` ✅ `calidad-frontend` ✅ `contrato-openapi` ✅ `trazabilidad` ✅ `lint-infra` | ✅ |
-| **3 · SAST** | Semgrep y CodeQL | ✅ `semgrep` ✅ `codeql` | ✅ |
-| **4 · Dependencias (SCA)** | dependency review, npm audit, Trivy fs | ✅ `dependencias` ✅ `trivy-fs` | ✅ |
+| **2 · Calidad y especificación** | lint, tipos, arquitectura, Spectral, oasdiff, spec-trace, actionlint, zizmor | ✅ `calidad-backend` ✅ `calidad-frontend` ✅ `contrato-openapi` ✅ `trazabilidad` ✅ `lint-infra` | ✅ |
+| **3 · SAST** | Semgrep | ✅ `semgrep` | ✅ |
+| **4 · Dependencias (SCA) y misconfig** | Trivy fs (vulnerabilidades de dependencias y misconfig de Dockerfiles y compose) | ✅ `trivy-fs` | ✅ |
 | **5 · Tests unitarios** | dominio y aplicación sin mocks, componentes con MSW | ✅ `unit-backend` ✅ `unit-frontend` | ✅ |
 | **5 · Calidad de código (SonarQube)** | SonarQube efímero: bugs, vulnerabilidades, code smells, cobertura, duplicación y quality gate | ✅ `sonarqube` | ✅ |
 | **6 · Integración y contrato backend** | Testcontainers (PostgreSQL) y supertest contra el OpenAPI | ✅ `integracion-backend` | ✅ |
@@ -119,15 +119,13 @@ Smoke: 19 de 19 verificaciones OK en 65 ms.
 | --- | --- | --- |
 | gitleaks | Secretos | ✅ 0 hallazgos |
 | Semgrep | SAST | ⚠️ ERROR 0 · WARNING 1 · INFO 0 |
-| CodeQL | SAST | ℹ️ informativo (ver pestaña Security) |
-| Dependency review y npm audit | SCA | ✅ ok |
-| Trivy fs | SCA, secretos e IaC | ✅ CRITICAL 0 · HIGH 0 · MEDIUM 1 · LOW 0 |
+| Trivy fs | SCA e IaC | ✅ CRITICAL 0 · HIGH 0 · MEDIUM 1 · LOW 0 |
 | Trivy imagen backend | Contenedor | ⚠️ CRITICAL 0 · HIGH 1 · MEDIUM 0 · LOW 1 |
 | Trivy imagen frontend | Contenedor | ✅ CRITICAL 0 · HIGH 0 · MEDIUM 0 · LOW 0 |
 | OWASP ZAP baseline (frontend) | DAST | ⚠️ High 0 · Medium 1 · Low 0 · Informational 1 |
 | OWASP ZAP API scan (backend) | DAST | ❌ High 1 · Medium 0 · Low 0 · Informational 0 |
-| Lighthouse CI `/` | Calidad web | ✅ Rendimiento 97 · Accesibilidad 100 · Buenas prácticas 100 · SEO 91 |
-| Lighthouse CI `/prestamos` | Calidad web | ✅ Rendimiento 95 · Accesibilidad 98 · Buenas prácticas 100 · SEO 91 |
+| Lighthouse CI `/` | Calidad web | ✅ Rendimiento 97 · Buenas prácticas 100 · SEO 91 |
+| Lighthouse CI `/prestamos` | Calidad web | ✅ Rendimiento 95 · Buenas prácticas 100 · SEO 91 |
 | k6 | Rendimiento API | ✅ p95 21.7 ms · errores 0.00 % · 1840 solicitudes |
 | spec-trace | Trazabilidad SDD | ✅ 27 de 27 reglas con tests · 0 huérfanos · 0 sobre presupuesto |
 

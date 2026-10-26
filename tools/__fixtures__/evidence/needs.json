@@ -7,8 +7,6 @@
   "trazabilidad": { "result": "success", "outputs": {} },
   "lint-infra": { "result": "success", "outputs": {} },
   "semgrep": { "result": "success", "outputs": {} },
-  "codeql": { "result": "success", "outputs": {} },
-  "dependencias": { "result": "success", "outputs": {} },
   "trivy-fs": { "result": "success", "outputs": {} },
   "unit-backend": { "result": "success", "outputs": {} },
   "unit-frontend": { "result": "success", "outputs": {} },

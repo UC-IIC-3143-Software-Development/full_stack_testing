@@ -56,10 +56,12 @@ Las reglas de dependencia se verifican con `dependency-cruiser` en CI.
 
 ## P5 · Seguridad desde el inicio (DevSecOps)
 
-1. Ningún secreto en el repositorio (gitleaks y Trivy lo verifican).
-2. Toda dependencia nueva pasa por el análisis de dependencias del PR.
+1. Ningún secreto en el repositorio (gitleaks lo verifica en el hook y en CI, con todo el historial).
+2. Toda dependencia nueva pasa por el análisis de dependencias del PR (Trivy fs).
 3. Las imágenes de contenedor corren con usuario no root y se escanean con Trivy.
-4. SAST (Semgrep, CodeQL) y DAST (OWASP ZAP) corren en cada PR.
+4. SAST (Semgrep) y DAST (OWASP ZAP) corren en cada PR.
+5. Una herramienta por tipo de análisis: dos herramientas que revisan lo mismo duplican
+   hallazgos y minutos de CI sin encontrar más problemas.
 
 ## P6 · Todo cambio entra por Pull Request con evidencia
 

@@ -17,8 +17,8 @@
     "evidence:comment": "node tools/evidence/build-comment.mjs",
     "evidence:example": "node tools/evidence/build-comment.mjs --artifacts tools/__fixtures__/evidence --out docs/ejemplo-comentario-pr.md --example",
     "test:tools": "node --test \"tools/**/*.test.mjs\"",
-    "format": "prettier --write \"tools/**/*.{mjs,js,json}\" \".github/**/*.yml\" \".semgrep/**/*.yml\" package.json docker-compose.yml .spectral.yaml .hadolint.yaml",
-    "format:check": "prettier --check \"tools/**/*.{mjs,js,json}\" \".github/**/*.yml\" \".semgrep/**/*.yml\" package.json docker-compose.yml .spectral.yaml .hadolint.yaml",
+    "format": "prettier --write \"tools/**/*.{mjs,js,json}\" \".github/**/*.yml\" \".semgrep/**/*.yml\" package.json docker-compose.yml .spectral.yaml",
+    "format:check": "prettier --check \"tools/**/*.{mjs,js,json}\" \".github/**/*.yml\" \".semgrep/**/*.yml\" package.json docker-compose.yml .spectral.yaml",
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {

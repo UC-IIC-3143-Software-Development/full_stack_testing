@@ -72,20 +72,20 @@ elimina esa rama al compilar y el Dockerfile borra el Service Worker.
 
 ## Tipos de test
 
-| Script                | Tipo                       | Qué verifica                                                             | Dónde                                 |
-| --------------------- | -------------------------- | ------------------------------------------------------------------------ | ------------------------------------- |
-| `test:unit`           | Unit sin dobles            | Funciones puras del dominio (BOOK-R1, LOAN-R6, UI-LOAN-1)                | `src/shared/domain/*.test.ts`         |
-| `test:unit`           | Componentes                | Comportamiento visible con Testing Library y MSW                         | `src/features/**/*.test.tsx`          |
-| `test:contract`       | Contrato de mocks          | Respuestas MSW vs `openapi.yaml` (MOCK-R1, MOCK-R2)                      | `src/mocks/handlers.contract.test.ts` |
-| `test:e2e` (`flows`)  | Flujos BDD desde la spec   | Los escenarios de `specs/flows/*.feature`, con video y capturas          | `tests/e2e/steps/`                    |
-| `test:e2e` (`visual`) | Regresión visual           | Capturas comparadas con imágenes de referencia de Linux                  | `tests/visual/`                       |
-| `test:e2e` (`style`)  | Estilos computados         | Colores exactos de los tokens (`toHaveCSS`)                              | `tests/style/`                        |
-| `test:e2e` (`layout`) | Posiciones relativas       | Grilla de 3 y 1 columnas, insignia arriba a la derecha (`boundingBox`)   | `tests/layout/`                       |
-| `test:e2e` (`a11y`)   | Accesibilidad              | Cero violaciones WCAG A/AA con axe-core                                  | `tests/a11y/`                         |
-| `test:e2e:smoke`      | Smoke contra el stack real | Escenarios `@smoke` contra frontend, backend y PostgreSQL                | `E2E_BASE_URL`                        |
-| `test:lighthouse`     | Lighthouse CI              | Accesibilidad ≥ 0,95 y buenas prácticas ≥ 0,9 (rendimiento y SEO avisan) | `lighthouserc.json`                   |
-| `test:mutation`       | Mutation testing           | Calidad de los tests del dominio (Stryker, solo nightly)                 | `stryker.config.mjs`                  |
-| `test:arch`           | Arquitectura               | Reglas de dependencia entre capas                                        | `.dependency-cruiser.cjs`             |
+| Script                | Tipo                       | Qué verifica                                                           | Dónde                                 |
+| --------------------- | -------------------------- | ---------------------------------------------------------------------- | ------------------------------------- |
+| `test:unit`           | Unit sin dobles            | Funciones puras del dominio (BOOK-R1, LOAN-R6, UI-LOAN-1)              | `src/shared/domain/*.test.ts`         |
+| `test:unit`           | Componentes                | Comportamiento visible con Testing Library y MSW                       | `src/features/**/*.test.tsx`          |
+| `test:contract`       | Contrato de mocks          | Respuestas MSW vs `openapi.yaml` (MOCK-R1, MOCK-R2)                    | `src/mocks/handlers.contract.test.ts` |
+| `test:e2e` (`flows`)  | Flujos BDD desde la spec   | Los escenarios de `specs/flows/*.feature`, con video y capturas        | `tests/e2e/steps/`                    |
+| `test:e2e` (`visual`) | Regresión visual           | Capturas comparadas con imágenes de referencia de Linux                | `tests/visual/`                       |
+| `test:e2e` (`style`)  | Estilos computados         | Colores exactos de los tokens (`toHaveCSS`)                            | `tests/style/`                        |
+| `test:e2e` (`layout`) | Posiciones relativas       | Grilla de 3 y 1 columnas, insignia arriba a la derecha (`boundingBox`) | `tests/layout/`                       |
+| `test:e2e` (`a11y`)   | Accesibilidad              | Cero violaciones WCAG A/AA con axe-core                                | `tests/a11y/`                         |
+| `test:e2e:smoke`      | Smoke contra el stack real | Escenarios `@smoke` contra frontend, backend y PostgreSQL              | `E2E_BASE_URL`                        |
+| `test:lighthouse`     | Lighthouse CI              | Buenas prácticas ≥ 0,9, rendimiento y SEO avisan (a11y la revisa axe)  | `lighthouserc.json`                   |
+| `test:mutation`       | Mutation testing           | Calidad de los tests del dominio (Stryker, solo nightly)               | `stryker.config.mjs`                  |
+| `test:arch`           | Arquitectura               | Reglas de dependencia entre capas                                      | `.dependency-cruiser.cjs`             |
 
 ¿Por qué tres tipos de test "visuales"? Porque fallan por razones distintas:
 

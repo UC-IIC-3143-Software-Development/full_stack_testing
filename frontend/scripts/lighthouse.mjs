@@ -1,4 +1,5 @@
-// Lighthouse CI: accesibilidad, buenas prácticas, rendimiento y SEO de / y /prestamos.
+// Lighthouse CI: rendimiento, buenas prácticas y SEO de / y /prestamos. La accesibilidad la
+// revisa axe con Playwright (Lighthouse usa axe por debajo, así que sería un análisis repetido).
 //   E2E_BASE_URL=http://localhost:3000 npm run test:lighthouse   contra un servidor ya levantado
 //   npm run test:lighthouse                                       compila con MSW y lo levanta solo
 // Necesita Chrome o Chromium instalado (en GitHub Actions ya viene en ubuntu-latest).

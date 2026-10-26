@@ -2,7 +2,7 @@
 #
 # No es un linter más: le entrega al agente las mismas reglas que usa el equipo
 # (constitución, arquitectura, specs de features y de capas) y le pide revisar el
-# diff contra ellas. Complementa a Semgrep y CodeQL (reglas fijas) con criterio:
+# diff contra ellas. Complementa a Semgrep (reglas fijas) con criterio:
 # tests huérfanos, mocks injustificados, tests duplicados entre capas, lógica en la
 # capa equivocada o riesgos de seguridad que no calzan con un patrón.
 #

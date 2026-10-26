@@ -33,7 +33,6 @@ describe('build-comment: resúmenes por herramienta', () => {
     )
     assert.deepEqual(summarizeTrivy(report), {
       counts: { CRITICAL: 0, HIGH: 1, MEDIUM: 0, LOW: 1 },
-      secrets: 0,
       misconfigs: 0,
     })
   })
@@ -136,10 +135,10 @@ describe('build-comment: comentario completo', () => {
     )
   })
 
-  it('muestra una fila de Lighthouse por URL y CodeQL como informativo', () => {
+  it('muestra una fila de Lighthouse por URL sin accesibilidad (la revisa axe)', () => {
     assert.match(comment, /\| Lighthouse CI `\/` \| Calidad web \| ✅ Rendimiento 97/)
     assert.match(comment, /\| Lighthouse CI `\/prestamos` \| Calidad web \| ✅ Rendimiento 95/)
-    assert.match(comment, /\| CodeQL \| SAST \| ℹ️ informativo \(ver pestaña Security\) \|/)
+    assert.doesNotMatch(comment, /Lighthouse CI .*Accesibilidad/)
   })
 
   it('muestra la etapa de SonarQube y su quality gate desde el artefacto sonarqube', () => {
@@ -166,7 +165,7 @@ describe('build-comment: artefactos faltantes', () => {
     const empty = mkdtempSync(join(tmpdir(), 'evidencia-'))
     const comment = buildComment({ artifacts: loadArtifacts(empty), needs: {}, operations: [] })
     assert.match(comment, /No disponible: la etapa no corrió/)
-    assert.match(comment, /\| Trivy fs \| SCA, secretos e IaC \| no disponible \|/)
+    assert.match(comment, /\| Trivy fs \| SCA e IaC \| no disponible \|/)
     assert.match(comment, /_No disponible: el job `sonarqube` no corrió o no dejó resumen\._/)
   })
 

@@ -42,7 +42,6 @@ full_stack_testing/
 ├── .githooks/pre-commit       gitleaks + Prettier antes de cada commit
 ├── .spectral.yaml             reglas de estilo del contrato
 ├── .gitleaks.toml             configuración de detección de secretos
-├── .hadolint.yaml             configuración del lint de Dockerfiles
 ├── sonar-project.properties   qué analiza SonarQube: código, tests, exclusiones y cobertura
 ├── docker-compose.yml         stack completo: PostgreSQL, backend y frontend
 └── docs/                      pipeline explicado y ejemplo del comentario de evidencia
@@ -53,12 +52,9 @@ full_stack_testing/
 Algunas compuertas dependen de opciones de GitHub que no se versionan en el repo. Al crear tu
 copia, revisa en **Settings**:
 
-1. **Security (Advanced Security), Dependency graph**: actívalo para que dependency review
-   (etapa 4) bloquee el PR. Sin Dependency graph el paso no puede correr y hoy es informativo:
-   deja un aviso en el resumen del job y npm audit y Trivy fs siguen bloqueando.
-2. **Rules o Branches**: protege `main` y exige el check "Resultado del pipeline", que falla si
+1. **Rules o Branches**: protege `main` y exige el check "Resultado del pipeline", que falla si
    alguna etapa falló.
-3. **Secrets and variables, Actions**: el secreto `ANTHROPIC_API_KEY` para la revisión con IA
+2. **Secrets and variables, Actions**: el secreto `ANTHROPIC_API_KEY` para la revisión con IA
    (ver [Revisión de código con IA](#revisión-de-código-con-ia)).
 
 ## Cómo correrlo
@@ -143,14 +139,15 @@ variantes del mismo caso.
 | Trazabilidad | Reglas con tests, sin huérfanos, dentro del presupuesto | `tools/spec-trace.mjs` | `tools/` | 2 |
 | Calidad de código | Bugs, vulnerabilidades, code smells (código difícil de mantener), cobertura y duplicación de todo el repo, con una quality gate que aprueba o reprueba | SonarQube Community efímero (contenedor temporal en el runner) | `sonar-project.properties`, `tools/sonarqube/` | 5 |
 | Secretos | Credenciales en el código o el historial | gitleaks (hook y CI) | `.githooks/`, `.gitleaks.toml` | 1 |
-| SAST | Código vulnerable y violaciones de las specs | Semgrep, CodeQL | `.semgrep/` | 3 |
-| SCA | Dependencias con vulnerabilidades conocidas | dependency review, npm audit, Trivy fs | `ci.yml` | 4 |
-| Contenedores y SBOM | Vulnerabilidades de la imagen e inventario de componentes | Trivy image, CycloneDX | `ci.yml` | 8 |
+| SAST | Código vulnerable y violaciones de las specs | Semgrep | `.semgrep/` | 3 |
+| SCA | Dependencias con vulnerabilidades conocidas | Trivy fs (vulnerabilidades) | `ci.yml` | 4 |
+| Dockerfiles e IaC | Dockerfiles y `docker-compose.yml` mal configurados | Trivy fs (misconfig) | `ci.yml` | 4 |
+| Contenedores y SBOM | Vulnerabilidades de la imagen e inventario de componentes | Trivy image (solo vulnerabilidades), CycloneDX | `ci.yml` | 8 |
 | Smoke E2E del sistema | Los flujos `@smoke` contra el stack real con PostgreSQL | Playwright | `specs/flows/*.feature` | 9 |
 | Smoke de la API | Todos los endpoints del contrato responden en el stack real | `tools/api-smoke.mjs` | `tools/` | 9 |
 | Fuzzing desde el contrato | Miles de requests generadas desde el OpenAPI buscando respuestas fuera del contrato | Schemathesis | `specs/api/openapi.yaml` | 9 |
 | Rendimiento | p95 menor a 500 ms y menos de 1 % de errores | k6 | `tools/perf/k6-smoke.js` | 9 |
-| Calidad web | Rendimiento, accesibilidad, buenas prácticas y SEO | Lighthouse CI | `frontend/lighthouserc.json` | 9 |
+| Calidad web | Rendimiento, buenas prácticas y SEO (la accesibilidad la revisa axe) | Lighthouse CI | `frontend/lighthouserc.json` | 9 |
 | DAST | Ataques a la app corriendo (cabeceras, inyección, XSS) | OWASP ZAP | `tools/zap/` | 9 |
 | Mutation testing | Tests que no detectan cambios en el código | Stryker | `nightly.yml` | noche |
 | Cross-browser | Los flujos en Firefox y WebKit | Playwright | `nightly.yml` | noche |
@@ -192,8 +189,8 @@ En cada PR la etapa 10 deja (y actualiza en cada push) un comentario con:
 3. **Backend**: por cada operación del OpenAPI, los códigos verificados por los tests de
    contrato y por el smoke contra el stack real, con su tiempo. Abajo, el resultado de
    Schemathesis.
-4. **Seguridad y calidad**: gitleaks, Semgrep, CodeQL, dependencias, Trivy (por
-   severidad), ZAP (por riesgo), Lighthouse, k6 y trazabilidad.
+4. **Seguridad y calidad**: gitleaks, Semgrep, Trivy (por severidad), ZAP (por riesgo),
+   Lighthouse, k6 y trazabilidad.
 5. **Calidad de código (SonarQube)**: si la quality gate aprobó, cada condición con su valor,
    las métricas (bugs, vulnerabilidades, code smells, cobertura, duplicación) y los principales
    issues. SonarQube se borra al terminar el job, así que esta sección y el artefacto `sonarqube`
@@ -222,6 +219,10 @@ Sin el secreto, los dos workflows terminan en verde con un aviso en el resumen d
 Los PR desde forks no reciben secretos, así que tampoco ejecutan la revisión.
 
 ## Seguridad en el repositorio
+
+Una herramienta por tipo de análisis, para no revisar dos veces lo mismo: gitleaks para
+secretos, Semgrep para SAST, Trivy fs para dependencias y misconfig, Trivy image para las
+imágenes, ZAP para DAST y axe para accesibilidad.
 
 - `git config core.hooksPath .githooks` activa el hook que corre gitleaks y Prettier
   antes de cada commit (inspirado en herramientas como Talisman).

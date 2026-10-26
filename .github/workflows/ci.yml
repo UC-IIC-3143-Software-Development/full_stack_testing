@@ -2,9 +2,9 @@
 #
 #                ┌─ 1 Secretos ─────────────────────────────────────────────┐
 #                ├─ 2 Calidad y especificación (lint, tipos, arquitectura,  │
-#                │    Spectral, oasdiff, spec-trace, hadolint, zizmor)      │
-#   0 Cambios ───┼─ 3 SAST (Semgrep, CodeQL)                                ├─► 10 Evidencia en el PR
-#                ├─ 4 Dependencias (dependency review, npm audit, Trivy fs) │   y Resultado
+#                │    Spectral, oasdiff, spec-trace, actionlint, zizmor)    │
+#   0 Cambios ───┼─ 3 SAST (Semgrep)                                        ├─► 10 Evidencia en el PR
+#                ├─ 4 Dependencias y misconfig (Trivy fs)                   │   y Resultado
 #                ├─ 5 Unitarios ──┬─► 5 SonarQube efímero (quality gate)    │
 #                ├─ 6 Integración y contrato backend (Testcontainers)       │
 #                ├─ 7 E2E frontend con mock server (MSW)                    │
@@ -74,7 +74,6 @@ jobs:
               - 'package-lock.json'
               - '.spectral.yaml'
               - '.gitleaks.toml'
-              - '.hadolint.yaml'
               - 'sonar-project.properties'
               - '.prettierrc.json'
               - '.editorconfig'
@@ -306,7 +305,7 @@ jobs:
           if-no-files-found: ignore
 
   lint-infra:
-    name: 2 · Lint de infraestructura y del pipeline (hadolint, actionlint, zizmor)
+    name: 2 · Lint del pipeline (actionlint, zizmor)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -315,22 +314,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Dockerfiles (hadolint)
-        run: |
-          status=0
-          for file in backend/Dockerfile frontend/Dockerfile
-          do
-            if [ -f "$file" ]
-            then
-              echo "::group::hadolint $file"
-              docker run --rm -i -v "$PWD/.hadolint.yaml:/config/hadolint.yaml:ro" \
-                hadolint/hadolint:v2.15.1 hadolint --config /config/hadolint.yaml - < "$file" || status=1
-              echo "::endgroup::"
-            fi
-          done
-          exit "$status"
       - name: Sintaxis y shell de los workflows (actionlint con shellcheck)
-        if: ${{ !cancelled() }}
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - name: Seguridad de los workflows (zizmor)
         if: ${{ !cancelled() }}
@@ -367,6 +351,7 @@ jobs:
             --metrics=off \
             --json-output=reports/semgrep/semgrep.json \
             --sarif-output=reports/semgrep/semgrep.sarif
+      # upload-sarif solo sube el reporte a la pestaña Security. No corre el análisis de CodeQL.
       - name: Subir SARIF a code scanning
         if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
@@ -386,84 +371,13 @@ jobs:
           jq -r '.results[] | select(.extra.severity == "ERROR" or .extra.severity == "HIGH" or .extra.severity == "CRITICAL") | "::error file=\(.path),line=\(.start.line)::\(.check_id): \(.extra.message)"' reports/semgrep/semgrep.json
           test "$errors" -eq 0
 
-  codeql:
-    name: 3 · SAST con CodeQL
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      security-events: write # subir SARIF a la pestaña Security (code scanning)
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-        with:
-          languages: javascript-typescript
-          build-mode: none
-          queries: security-extended
-          config: |
-            paths-ignore:
-              - tools/__fixtures__
-              - .semgrep
-      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-        with:
-          category: /language:javascript-typescript
-
   # ---------------------------------------------------------------------------
-  # Etapa 4 · Dependencias (SCA): vulnerabilidades y licencias de terceros
+  # Etapa 4 · Dependencias (SCA) y misconfig con Trivy fs. Una herramienta por análisis:
+  # vuln revisa las dependencias, misconfig los Dockerfiles y docker-compose.yml.
+  # Los secretos los revisa gitleaks en la etapa 1.
   # ---------------------------------------------------------------------------
-  dependencias:
-    name: 4 · Dependencias (dependency review y npm audit)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write # dependency review comenta el resumen en el PR solo cuando falla
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Necesita el Dependency graph activado en el repo. Si no lo está, la acción falla
-      # con "Dependency review is not supported on this repository". Por eso no bloquea:
-      # npm audit (abajo) y Trivy fs siguen siendo las compuertas de dependencias.
-      - name: Dependencias nuevas del PR (falla con severidad high)
-        id: dependency-review
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          fail-on-severity: high
-          comment-summary-in-pr: on-failure
-      - name: Aviso si dependency review no pudo correr o falló
-        if: ${{ !cancelled() && steps.dependency-review.outcome == 'failure' }}
-        run: |
-          echo "::warning title=Dependency review::No bloqueó el PR. Revisa el log del paso y activa Dependency graph en Settings, Security."
-          {
-            echo "### ⚠️ Dependency review no bloquea este PR"
-            echo ""
-            echo "El paso falló o no pudo correr. Si el log dice \"Dependency review is not supported on this repository\","
-            echo "hay que activar **Dependency graph** en Settings, Security (Advanced Security) del repositorio."
-            echo ""
-            echo "Mientras tanto, npm audit (este job) y Trivy fs siguen bloqueando dependencias vulnerables."
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: npm audit de producción por app
-        if: ${{ !cancelled() }}
-        run: |
-          status=0
-          for dir in backend frontend
-          do
-            if [ -f "$dir/package-lock.json" ]
-            then
-              echo "::group::npm audit $dir"
-              (cd "$dir" && npm audit --omit=dev --audit-level=high) || status=1
-              echo "::endgroup::"
-            fi
-          done
-          exit "$status"
-
   trivy-fs:
-    name: 4 · Trivy fs (vulnerabilidades, secretos y misconfig)
+    name: 4 · Dependencias y misconfig (Trivy fs)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -485,7 +399,7 @@ jobs:
         run: |
           mkdir -p reports/trivy "$HOME/.cache/trivy"
           docker run --rm -v "$PWD:/src" -w /src -v "$HOME/.cache/trivy:/root/.cache/trivy" \
-            aquasec/trivy:0.76.1 fs --scanners vuln,secret,misconfig \
+            aquasec/trivy:0.76.1 fs --scanners vuln,misconfig \
             --skip-dirs tools/__fixtures__ \
             --format json --output reports/trivy/trivy-fs.json .
           docker run --rm -v "$PWD:/src" -w /src -v "$HOME/.cache/trivy:/root/.cache/trivy" \
@@ -505,12 +419,11 @@ jobs:
           name: trivy-fs
           path: reports/trivy/trivy-fs.json
           if-no-files-found: ignore
-      - name: Compuerta (secretos o vulnerabilidades CRITICAL con parche)
+      - name: Compuerta (vulnerabilidades CRITICAL con parche)
         run: |
           critical=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")] | length' reports/trivy/trivy-fs.json)
-          secrets=$(jq '[.Results[]?.Secrets[]?] | length' reports/trivy/trivy-fs.json)
-          echo "CRITICAL con parche: $critical, secretos: $secrets"
-          test "$critical" -eq 0 && test "$secrets" -eq 0
+          echo "CRITICAL con parche: $critical"
+          test "$critical" -eq 0
 
   # ---------------------------------------------------------------------------
   # Etapa 5 · Tests unitarios (la base de la pirámide)
@@ -743,7 +656,7 @@ jobs:
   imagenes:
     name: 8 · Build de imágenes, Trivy image y SBOM
     # El ciclo lento espera al rápido: la calidad de cada app, el contrato, la trazabilidad,
-    # el lint de infraestructura y los unitarios (etapas 2 y 5) tienen que estar en verde.
+    # el lint del pipeline y los unitarios (etapas 2 y 5) tienen que estar en verde.
     needs:
       - cambios
       - calidad-backend
@@ -784,7 +697,7 @@ jobs:
           for app in backend frontend
           do
             image="biblioteca-${app}:ci"
-            trivy image --scanners vuln,secret --format json --output "/out/trivy-image-${app}.json" "$image"
+            trivy image --scanners vuln --format json --output "/out/trivy-image-${app}.json" "$image"
             trivy convert --format sarif --output "/out/trivy-image-${app}.sarif" "/out/trivy-image-${app}.json"
             trivy convert --format table "/out/trivy-image-${app}.json"
             trivy image --format cyclonedx --output "/out/sbom-${app}.cdx.json" "$image"
@@ -808,16 +721,15 @@ jobs:
           path: |
             reports/trivy/*.json
           if-no-files-found: ignore
-      - name: Compuerta (secretos o vulnerabilidades CRITICAL con parche en las imágenes)
+      - name: Compuerta (vulnerabilidades CRITICAL con parche en las imágenes)
         run: |
           status=0
           for app in backend frontend
           do
             report="reports/trivy/trivy-image-${app}.json"
             critical=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" and (.FixedVersion // "") != "")] | length' "$report")
-            secrets=$(jq '[.Results[]?.Secrets[]?] | length' "$report")
-            echo "$app: CRITICAL con parche: $critical, secretos: $secrets"
-            if [ "$critical" -ne 0 ] || [ "$secrets" -ne 0 ]
+            echo "$app: CRITICAL con parche: $critical"
+            if [ "$critical" -ne 0 ]
             then
               status=1
             fi
@@ -919,7 +831,7 @@ jobs:
             grafana/k6:2.3.0 run tools/perf/k6-smoke.js
 
       # @lhci/cli autorun con frontend/lighthouserc.json (umbrales definidos por el frontend)
-      - name: Lighthouse CI (rendimiento, accesibilidad, buenas prácticas, SEO)
+      - name: Lighthouse CI (rendimiento, buenas prácticas, SEO)
         if: ${{ !cancelled() && steps.frontend.outcome == 'success' }}
         working-directory: frontend
         run: npm run test:lighthouse
@@ -1052,8 +964,6 @@ jobs:
       - trazabilidad
       - lint-infra
       - semgrep
-      - codeql
-      - dependencias
       - trivy-fs
       - unit-backend
       - unit-frontend
@@ -1154,8 +1064,6 @@ jobs:
       - trazabilidad
       - lint-infra
       - semgrep
-      - codeql
-      - dependencias
       - trivy-fs
       - unit-backend
       - unit-frontend
