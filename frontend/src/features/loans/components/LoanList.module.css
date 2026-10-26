@@ -56,12 +56,18 @@
   font-weight: 600;
 }
 
-/* Variante secundaria: borde azul, fondo blanco. */
-.returnButton {
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Variante secundaria: borde azul, fondo blanco ("Devolver" y "Renovar"). */
+.secondaryButton {
   background: var(--color-surface);
   color: var(--color-primary);
 }
 
-.returnButton:hover:not(:disabled) {
+.secondaryButton:hover:not(:disabled) {
   background: var(--color-bg);
 }

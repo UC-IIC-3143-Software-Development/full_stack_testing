@@ -13,8 +13,11 @@ export interface HandlerOptions {
   now?: () => Date
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
 const LOAN_DAYS = 14
 const MAX_ACTIVE_LOANS = 3
+const RENEWAL_DAYS = 7
+const MAX_RENEWALS = 1
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -191,7 +194,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       }
 
       const loanedAt = now()
-      const dueAt = new Date(loanedAt.getTime() + LOAN_DAYS * 24 * 60 * 60 * 1000)
+      const dueAt = new Date(loanedAt.getTime() + LOAN_DAYS * DAY_MS)
       const loan: StoredLoan = {
         id: crypto.randomUUID(),
         bookId,
@@ -232,6 +235,35 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         loans: state.loans.map((l) => (l.id === loanId ? returned : l)),
       })
       return HttpResponse.json(toLoan(returned))
+    }),
+
+    // SPEC-LIB-03. Con varios conflictos a la vez, el orden es: devuelto (RENEW-R3),
+    // ya renovado (RENEW-R2) y vencido (RENEW-R3).
+    http.post('*/api/loans/:loanId/renew', ({ params }) => {
+      const loanId = String(params.loanId)
+      if (!UUID.test(loanId)) {
+        return validationError([{ field: 'loanId', message: 'El identificador no es válido' }])
+      }
+      const state = store.read()
+      const loan = state.loans.find((l) => l.id === loanId)
+      if (!loan) return problem(404, 'LOAN_NOT_FOUND', 'No existe el préstamo solicitado')
+      if (loan.returnedAt !== null) {
+        return problem(409, 'ALREADY_RETURNED', 'El préstamo ya fue devuelto')
+      }
+      if (loan.renewalCount >= MAX_RENEWALS) {
+        return problem(409, 'RENEWAL_LIMIT_REACHED', 'El préstamo ya fue renovado')
+      }
+      // Renovar justo en el instante dueAt está permitido: computeLoanStatus usa "mayor que".
+      if (computeLoanStatus(loan, now()) === 'OVERDUE') {
+        return problem(409, 'LOAN_OVERDUE', 'El préstamo está vencido y no se puede renovar')
+      }
+      const renewed: StoredLoan = {
+        ...loan,
+        dueAt: new Date(new Date(loan.dueAt).getTime() + RENEWAL_DAYS * DAY_MS).toISOString(),
+        renewalCount: loan.renewalCount + 1,
+      }
+      store.write({ ...state, loans: state.loans.map((l) => (l.id === loanId ? renewed : l)) })
+      return HttpResponse.json(toLoan(renewed))
     }),
   ]
 }

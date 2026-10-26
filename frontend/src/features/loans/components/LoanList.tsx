@@ -1,17 +1,24 @@
 'use client'
 
+import type { Loan } from '@/shared/api/types'
 import { formatDate } from '@/shared/domain/date-format'
-import { GENERIC_ERROR_MESSAGE } from './loan-error-messages'
+import { GENERIC_ERROR_MESSAGE, loanActionMessage } from './loan-error-messages'
 import { useLoans } from '../hooks/useLoans'
 import { LoanStatusLabel } from './LoanStatusLabel'
 import styles from './LoanList.module.css'
 
+/** UI-RENEW-1: solo un préstamo activo que todavía no se renovó ofrece "Renovar". */
+function canRenew(loan: Loan) {
+  return loan.status === 'ACTIVE' && loan.renewalCount === 0
+}
+
 /**
  * UI-LOAN-2: préstamos de un correo con su etiqueta de estado.
  * UI-LOAN-3: "Devolver" actualiza la etiqueta a "Devuelto" sin recargar la página.
+ * UI-RENEW-1 y UI-RENEW-2: "Renovar" extiende la fecha sin recargar o muestra el error.
  */
 export function LoanList({ email }: { email: string }) {
-  const { state, loans, returnLoan, returning, returnFailure } = useLoans(email)
+  const { state, loans, returnLoan, renewLoan, pending, actionFailure } = useLoans(email)
 
   if (state.status === 'loading' || state.status === 'idle') {
     return <p aria-live="polite">Cargando préstamos...</p>
@@ -51,22 +58,30 @@ export function LoanList({ email }: { email: string }) {
               </div>
             </dl>
             {loan.status !== 'RETURNED' && (
-              <div>
+              <div className={styles.actions}>
                 <button
                   type="button"
-                  className={styles.returnButton}
-                  disabled={returning === loan.id}
+                  className={styles.secondaryButton}
+                  disabled={pending === loan.id}
                   onClick={() => returnLoan(loan.id)}
                 >
                   Devolver <span className="visually-hidden">{loan.bookTitle}</span>
                 </button>
+                {canRenew(loan) && (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    disabled={pending === loan.id}
+                    onClick={() => renewLoan(loan.id)}
+                  >
+                    Renovar <span className="visually-hidden">{loan.bookTitle}</span>
+                  </button>
+                )}
               </div>
             )}
-            {returnFailure?.loanId === loan.id && (
+            {actionFailure?.loanId === loan.id && (
               <p role="alert" className="alert">
-                {returnFailure.failure.kind === 'problem'
-                  ? (returnFailure.failure.problem.detail ?? GENERIC_ERROR_MESSAGE)
-                  : GENERIC_ERROR_MESSAGE}
+                {loanActionMessage(actionFailure.failure, actionFailure.action)}
               </p>
             )}
           </li>
