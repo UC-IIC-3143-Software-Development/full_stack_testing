@@ -147,6 +147,21 @@ que intercepta las llamadas a `/api` en el navegador y en Node. Los handlers se 
 contra el mismo OpenAPI que implementa el backend, así que el mock no puede mentir sobre
 el contrato. Por eso la etapa 7 no necesita levantar ni el backend ni la base de datos.
 
+## Capturas de referencia visuales
+
+Los tests visuales comparan cada pantalla con una captura aprobada
+(`frontend/tests/visual/__screenshots__/`). Una captura depende del sistema operativo, de las
+fuentes y del navegador, así que **nunca se genera en el computador de cada persona**: se genera
+en la misma imagen Docker de Playwright que usa la etapa 7 del CI, con el workflow
+[`visual-baselines.yml`](.github/workflows/visual-baselines.yml).
+
+- Si las capturas no existen, el workflow las crea y las commitea en `main`.
+- Si un PR cambia la UI a propósito, ejecuta el workflow a mano (Actions, "Capturas de referencia
+  visuales", Run workflow) sobre la rama del PR. El bot commitea las capturas nuevas y la persona
+  que revisa el PR aprueba el cambio visual junto con el código.
+- Localmente (macOS o Windows) los tests visuales se omiten. Para verlos en Linux usa
+  `npm run test:visual:docker` en `frontend/`.
+
 ## Cómo leer la evidencia del PR
 
 En cada PR la etapa 10 deja (y actualiza en cada push) un comentario con:
