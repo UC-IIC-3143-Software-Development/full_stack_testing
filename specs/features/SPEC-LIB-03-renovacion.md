@@ -25,6 +25,10 @@ Es la feature que se usa en la actividad práctica de la clase para recorrer el 
 - **RENEW-R2 · Una sola vez.** Un préstamo con `renewalCount = 1` no se puede renovar: 409 `RENEWAL_LIMIT_REACHED`.
 - **RENEW-R3 · Solo al día.** Un préstamo `OVERDUE` no se puede renovar: 409 `LOAN_OVERDUE`. Un préstamo
   devuelto tampoco: 409 `ALREADY_RETURNED`. Renovar exactamente en el instante `dueAt` está permitido.
+- **Orden de los errores al renovar.** Si un préstamo incumple varias reglas, responde el primer error
+  de esta lista: `ALREADY_RETURNED`, `RENEWAL_LIMIT_REACHED` y `LOAN_OVERDUE`. Los textos `detail` son
+  "El préstamo ya fue devuelto", "El préstamo ya fue renovado" y "El préstamo está vencido y no se puede
+  renovar". Backend y mock server usan el mismo orden y los mismos textos.
 - **RENEW-R4 · Inexistente.** Un préstamo que no existe responde 404 `LOAN_NOT_FOUND`. Un `loanId` que no es UUID responde 400.
 
 ## Comportamiento en la interfaz
@@ -32,6 +36,8 @@ Es la feature que se usa en la actividad práctica de la clase para recorrer el 
 - **UI-RENEW-1** En "Mis préstamos", cada préstamo activo con `renewalCount = 0` muestra el botón "Renovar".
   Al renovar, la fecha de devolución se actualiza sin recargar y el botón desaparece.
 - **UI-RENEW-2** Los errores se muestran como "Este préstamo ya fue renovado" y "No puedes renovar un préstamo vencido".
+  Para `ALREADY_RETURNED` (solo posible en una carrera, porque el botón no aparece en préstamos devueltos) se
+  muestra el `detail` de la API.
 
 ## Criterios de aceptación (mapa a los tests)
 

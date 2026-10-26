@@ -8,8 +8,8 @@ info:
     el backend lo implementa, el frontend genera sus tipos desde aquí y los
     mocks del frontend (MSW) se validan contra este archivo.
 
-    Reglas de negocio: `specs/features/SPEC-LIB-01-catalogo.md` y
-    `specs/features/SPEC-LIB-02-prestamos.md`.
+    Reglas de negocio: `specs/features/SPEC-LIB-01-catalogo.md`,
+    `specs/features/SPEC-LIB-02-prestamos.md` y `specs/features/SPEC-LIB-03-renovacion.md`.
   contact:
     name: IIC3143 Desarrollo de Software
     url: https://github.com/UC-IIC-3143-Software-Development/full_stack_testing
@@ -402,7 +402,7 @@ components:
         dueAt:
           type: string
           format: date-time
-          description: loanedAt más 14 días (LOAN-R3).
+          description: loanedAt más 14 días (LOAN-R3), más 7 días si se renovó (RENEW-R1).
         returnedAt:
           type: [string, 'null']
           format: date-time

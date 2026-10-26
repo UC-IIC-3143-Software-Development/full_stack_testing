@@ -192,7 +192,7 @@ export interface components {
             loanedAt: string;
             /**
              * Format: date-time
-             * @description loanedAt más 14 días (LOAN-R3).
+             * @description loanedAt más 14 días (LOAN-R3), más 7 días si se renovó (RENEW-R1).
              */
             dueAt: string;
             /** Format: date-time */

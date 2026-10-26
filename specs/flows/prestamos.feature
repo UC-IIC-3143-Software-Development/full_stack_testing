@@ -1,5 +1,5 @@
 # language: es
-# Flujos de usuario de SPEC-LIB-02. playwright-bdd genera los tests de Playwright desde aquí.
+# Flujos de usuario de SPEC-LIB-02 y SPEC-LIB-03. playwright-bdd genera los tests de Playwright desde aquí.
 # Reloj fijo de las pruebas: 2026-03-02T12:00:00Z (zona America/Santiago).
 @SPEC-LIB-02
 Característica: Préstamos
@@ -27,7 +27,7 @@ Característica: Préstamos
     Cuando pido prestado "Veinte poemas de amor y una canción desesperada" con el correo "beto@uc.cl"
     Entonces veo el error "Alcanzaste el máximo de 3 préstamos activos"
 
-  @FLOW-PRE-04
+  @SPEC-LIB-03 @FLOW-PRE-04
   Escenario: Renovar un préstamo al día
     Dado que "ana@uc.cl" tiene prestado "Cien años de soledad"
     Cuando reviso los préstamos de "ana@uc.cl"
