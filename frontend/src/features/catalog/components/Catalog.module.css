@@ -6,11 +6,34 @@
 
 .search {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
-  max-width: 560px;
+  max-width: 760px;
 }
 
 .field {
-  flex: 1;
+  flex: 1 1 240px;
+}
+
+/* UI-CAT-7: la casilla "Solo disponibles" queda junto al botón "Buscar", en la misma fila. */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+
+.toggle input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.toggle label {
+  margin: 0;
+  cursor: pointer;
 }
