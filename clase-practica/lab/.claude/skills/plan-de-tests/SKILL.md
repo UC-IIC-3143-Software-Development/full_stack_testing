@@ -22,11 +22,11 @@ Reglas:
 - Si "¿Ya cubierto por?" tiene un test existente → Decisión = **descartar**.
 - Si no puedes nombrar el riesgo concreto (qué bug detectaría) → **descartar**.
 - Reporta el total por capa y verifica que respete `test-budget.config.json`
-  (api ≤ 0,5 × unit; e2e ≤ 0,1 × unit).
+  (api ≤ 0,5 × unit y e2e ≤ 0,1 × unit).
 
 ## Paso 3: implementación (solo con el plan aprobado)
 - Un test a la vez: escribir → `npm test` → siguiente.
 - Al final: `npm run budget` y `npx stryker run --mutate <archivo de producción tocado>`.
-- Si sobreviven mutantes relevantes, agrega el caso que falta; si son irrelevantes
+- Si sobreviven mutantes relevantes, agrega el caso que falta. Si son irrelevantes
   (p. ej. el texto exacto de un mensaje de error que nadie consume), explícalo y no
   agregues tests solo para matarlos.
