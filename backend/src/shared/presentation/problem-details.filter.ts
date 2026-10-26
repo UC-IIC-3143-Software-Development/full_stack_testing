@@ -34,6 +34,8 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   LOAN_LIMIT_REACHED: 409,
   DUPLICATE_LOAN: 409,
   ALREADY_RETURNED: 409,
+  RENEWAL_LIMIT_REACHED: 409,
+  LOAN_OVERDUE: 409,
 }
 
 const VALIDATION_DETAIL = 'La solicitud tiene campos inválidos'

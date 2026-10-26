@@ -2,7 +2,15 @@
 // reglas mínimas para que el frontend se pueda probar sin backend. Sus respuestas se
 // validan contra el contrato en handlers.contract.test.ts (lado consumidor del contrato).
 import { http, HttpResponse, type HttpHandler } from 'msw'
-import type { Book, ErrorCode, FieldError, Loan, Problem } from '@/shared/api/types'
+import type {
+  Book,
+  ErrorCode,
+  FieldError,
+  Loan,
+  Problem,
+  RenewalErrorCode,
+  RenewalProblem,
+} from '@/shared/api/types'
 import { isValidIsbn13, normalizeIsbn } from '@/shared/domain/isbn'
 import { computeLoanStatus } from './loan-status'
 import type { MockState, StoredLoan } from './fixtures'
@@ -13,10 +21,36 @@ export interface HandlerOptions {
   now?: () => Date
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
 const LOAN_DAYS = 14
 const MAX_ACTIVE_LOANS = 3
+const RENEWAL_DAYS = 7
+const MAX_RENEWALS = 1
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Mismo patrón que el formato email de ajv-formats, que usa el backend para validar el contrato.
+const EMAIL =
+  /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i
+const EMAIL_MAX_LENGTH = 254
+
+// Textos de los 400 copiados del backend (openapi-request-validator.ts valida el contrato y
+// el dominio valida BOOK-R1 y BOOK-R3). La UI muestra lo mismo con mock server o con backend.
+const MESSAGES = {
+  required: 'El campo es obligatorio',
+  notAllowed: 'El campo no está permitido',
+  text: 'Debe ser de tipo texto',
+  integer: 'Debe ser de tipo número entero',
+  email: 'Debe ser un correo válido',
+  uuid: 'Debe ser un UUID válido',
+  isbn: 'El ISBN no es válido',
+  queryRequired: 'El parámetro es obligatorio',
+  invalidJson: 'El cuerpo no es un JSON válido',
+  notObject: 'Debe ser de tipo objeto',
+  minLength: (limit: number) => `Debe tener al menos ${limit} caracteres`,
+  maxLength: (limit: number) => `Debe tener como máximo ${limit} caracteres`,
+  minimum: (limit: number) => `Debe ser mayor o igual a ${limit}`,
+  maximum: (limit: number) => `Debe ser menor o igual a ${limit}`,
+  blank: (label: string) => `${label} no puede estar vacío`,
+}
 
 const TITLES: Record<number, string> = { 400: 'Bad Request', 404: 'Not Found', 409: 'Conflict' }
 
@@ -29,8 +63,63 @@ function problem(status: number, code: ErrorCode, detail: string, errors?: Field
   })
 }
 
+/** 409 de renewLoan: el contrato le da su propio schema (RenewalProblem). */
+function renewalProblem(code: RenewalErrorCode, detail: string) {
+  const body: RenewalProblem = {
+    type: 'about:blank',
+    title: TITLES[409],
+    status: 409,
+    code,
+    detail,
+  }
+  return HttpResponse.json(body, {
+    status: 409,
+    headers: { 'Content-Type': 'application/problem+json' },
+  })
+}
+
 function validationError(errors: FieldError[]) {
   return problem(400, 'VALIDATION_ERROR', 'La solicitud tiene campos inválidos', errors)
+}
+
+/** Largo en puntos de código, como cuentan JSON Schema (ajv) y el backend. */
+function codePoints(text: string): number {
+  return [...text].length
+}
+
+/** Valida un texto como lo hace el contrato: tipo, minLength y maxLength. */
+function textError(value: unknown, min: number, max: number): string | null {
+  if (value === undefined) return MESSAGES.required
+  if (typeof value !== 'string') return MESSAGES.text
+  if (codePoints(value) > max) return MESSAGES.maxLength(max)
+  if (codePoints(value) < min) return MESSAGES.minLength(min)
+  return null
+}
+
+/** Correo según el contrato (format email, maxLength 254). Se valida tal como llega, sin recortar. */
+function emailError(value: unknown): string | null {
+  if (value === undefined || value === null) return MESSAGES.required
+  if (typeof value !== 'string') return MESSAGES.text
+  if (value.length > EMAIL_MAX_LENGTH) return MESSAGES.maxLength(EMAIL_MAX_LENGTH)
+  return EMAIL.test(value) ? null : MESSAGES.email
+}
+
+function uuidError(value: unknown): string | null {
+  if (value === undefined) return MESSAGES.required
+  if (typeof value !== 'string') return MESSAGES.text
+  return UUID.test(value) ? null : MESSAGES.uuid
+}
+
+function copiesError(value: unknown): string | null {
+  if (value === undefined) return MESSAGES.required
+  if (!Number.isInteger(value)) return MESSAGES.integer
+  if ((value as number) < 1) return MESSAGES.minimum(1)
+  if ((value as number) > 50) return MESSAGES.maximum(50)
+  return null
+}
+
+function collect(entries: [string, string | null][]): FieldError[] {
+  return entries.flatMap(([field, message]) => (message ? [{ field, message }] : []))
 }
 
 /** BOOK-R5: compara sin mayúsculas ni tildes. */
@@ -41,27 +130,25 @@ function fold(text: string): string {
     .toLowerCase()
 }
 
-function normalizeEmail(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null
-  const email = raw.trim().toLowerCase()
-  return email.length <= 254 && EMAIL.test(email) ? email : null
-}
-
 function unexpectedFields(body: Record<string, unknown>, allowed: string[]): FieldError[] {
   return Object.keys(body)
     .filter((key) => !allowed.includes(key))
-    .map((field) => ({ field, message: 'Campo no permitido' }))
+    .map((field) => ({ field, message: MESSAGES.notAllowed }))
 }
 
-async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
+/** Cuerpo JSON de la solicitud, o el FieldError que respondería el backend si no es un objeto. */
+async function readJsonObject(
+  request: Request,
+): Promise<{ body: Record<string, unknown> } | { error: FieldError }> {
+  let body: unknown
   try {
-    const body: unknown = await request.json()
-    return typeof body === 'object' && body !== null && !Array.isArray(body)
-      ? (body as Record<string, unknown>)
-      : null
+    body = await request.json()
   } catch {
-    return null
+    return { error: { field: 'body', message: MESSAGES.invalidJson } }
   }
+  return typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? { body: body as Record<string, unknown> }
+    : { error: { field: 'body', message: MESSAGES.notObject } }
 }
 
 export function createHandlers(store: MockStore, options: HandlerOptions = {}): HttpHandler[] {
@@ -78,8 +165,8 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
 
     http.get('*/api/books', ({ request }) => {
       const q = new URL(request.url).searchParams.get('q')
-      if (q !== null && q.length > 100) {
-        return validationError([{ field: 'q', message: 'La búsqueda admite hasta 100 caracteres' }])
+      if (q !== null && codePoints(q) > 100) {
+        return validationError([{ field: 'q', message: MESSAGES.maxLength(100) }])
       }
       const needle = fold(q ?? '')
       const books = store
@@ -90,34 +177,35 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     }),
 
     http.post('*/api/books', async ({ request }) => {
-      const body = await readJsonObject(request)
-      if (!body)
-        return validationError([{ field: 'body', message: 'El cuerpo debe ser un objeto JSON' }])
+      const parsed = await readJsonObject(request)
+      if ('error' in parsed) return validationError([parsed.error])
+      const { body } = parsed
 
-      const errors = unexpectedFields(body, ['isbn', 'title', 'author', 'totalCopies'])
+      // Primero el contrato (todos los campos a la vez), como el validador del backend.
       const { isbn, title, author, totalCopies } = body
-      if (typeof isbn !== 'string' || !isValidIsbn13(isbn)) {
-        errors.push({ field: 'isbn', message: 'El ISBN no es válido' })
+      const schemaErrors = [
+        ...unexpectedFields(body, ['isbn', 'title', 'author', 'totalCopies']),
+        ...collect([
+          ['isbn', textError(isbn, 13, 17)],
+          ['title', textError(title, 1, 200)],
+          ['author', textError(author, 1, 120)],
+          ['totalCopies', copiesError(totalCopies)],
+        ]),
+      ]
+      if (schemaErrors.length > 0) return validationError(schemaErrors)
+
+      // Después el dominio (BOOK-R1 y BOOK-R3), que responde solo el primer error.
+      const cleanTitle = (title as string).trim()
+      const cleanAuthor = (author as string).trim()
+      if (!isValidIsbn13(isbn as string)) {
+        return validationError([{ field: 'isbn', message: MESSAGES.isbn }])
       }
-      const cleanTitle = typeof title === 'string' ? title.trim() : ''
-      if (cleanTitle.length < 1 || cleanTitle.length > 200) {
-        errors.push({ field: 'title', message: 'El título debe tener entre 1 y 200 caracteres' })
+      if (cleanTitle.length === 0) {
+        return validationError([{ field: 'title', message: MESSAGES.blank('El título') }])
       }
-      const cleanAuthor = typeof author === 'string' ? author.trim() : ''
-      if (cleanAuthor.length < 1 || cleanAuthor.length > 120) {
-        errors.push({ field: 'author', message: 'El autor debe tener entre 1 y 120 caracteres' })
+      if (cleanAuthor.length === 0) {
+        return validationError([{ field: 'author', message: MESSAGES.blank('El autor') }])
       }
-      if (
-        !Number.isInteger(totalCopies) ||
-        (totalCopies as number) < 1 ||
-        (totalCopies as number) > 50
-      ) {
-        errors.push({
-          field: 'totalCopies',
-          message: 'Las copias deben ser un entero entre 1 y 50',
-        })
-      }
-      if (errors.length > 0) return validationError(errors)
 
       const state = store.read()
       const normalized = normalizeIsbn(isbn as string)
@@ -140,7 +228,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.get('*/api/books/:bookId', ({ params }) => {
       const bookId = String(params.bookId)
       if (!UUID.test(bookId)) {
-        return validationError([{ field: 'bookId', message: 'El identificador no es válido' }])
+        return validationError([{ field: 'bookId', message: MESSAGES.uuid }])
       }
       const book = findBook(store.read(), bookId)
       return book
@@ -149,10 +237,11 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     }),
 
     http.get('*/api/loans', ({ request }) => {
-      const email = normalizeEmail(new URL(request.url).searchParams.get('borrowerEmail'))
-      if (!email) {
-        return validationError([{ field: 'borrowerEmail', message: 'El correo no es válido' }])
-      }
+      const raw = new URL(request.url).searchParams.get('borrowerEmail')
+      const error = raw === null ? MESSAGES.queryRequired : emailError(raw)
+      if (error) return validationError([{ field: 'borrowerEmail', message: error }])
+      // LOAN-R7: se compara sin distinguir mayúsculas.
+      const email = (raw as string).toLowerCase()
       const loans = store
         .read()
         .loans.filter((l) => l.borrowerEmail === email)
@@ -162,16 +251,21 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     }),
 
     http.post('*/api/loans', async ({ request }) => {
-      const body = await readJsonObject(request)
-      if (!body)
-        return validationError([{ field: 'body', message: 'El cuerpo debe ser un objeto JSON' }])
+      const parsed = await readJsonObject(request)
+      if ('error' in parsed) return validationError([parsed.error])
+      const { body } = parsed
 
-      const errors = unexpectedFields(body, ['bookId', 'borrowerEmail'])
-      const bookId = typeof body.bookId === 'string' && UUID.test(body.bookId) ? body.bookId : null
-      if (!bookId) errors.push({ field: 'bookId', message: 'El identificador no es válido' })
-      const email = normalizeEmail(body.borrowerEmail)
-      if (!email) errors.push({ field: 'borrowerEmail', message: 'El correo no es válido' })
-      if (errors.length > 0 || !bookId || !email) return validationError(errors)
+      const errors = [
+        ...unexpectedFields(body, ['bookId', 'borrowerEmail']),
+        ...collect([
+          ['bookId', uuidError(body.bookId)],
+          ['borrowerEmail', emailError(body.borrowerEmail)],
+        ]),
+      ]
+      if (errors.length > 0) return validationError(errors)
+      const bookId = body.bookId as string
+      // LOAN-R7: el contrato ya rechazó los espacios, así que normalizar es pasar a minúsculas.
+      const email = (body.borrowerEmail as string).toLowerCase()
 
       const state = store.read()
       const book = findBook(state, bookId)
@@ -191,7 +285,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
       }
 
       const loanedAt = now()
-      const dueAt = new Date(loanedAt.getTime() + LOAN_DAYS * 24 * 60 * 60 * 1000)
+      const dueAt = new Date(loanedAt.getTime() + LOAN_DAYS * DAY_MS)
       const loan: StoredLoan = {
         id: crypto.randomUUID(),
         bookId,
@@ -200,6 +294,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         loanedAt: loanedAt.toISOString(),
         dueAt: dueAt.toISOString(),
         returnedAt: null,
+        renewalCount: 0,
       }
       store.write({
         books: state.books.map((b) =>
@@ -213,7 +308,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
     http.post('*/api/loans/:loanId/return', ({ params }) => {
       const loanId = String(params.loanId)
       if (!UUID.test(loanId)) {
-        return validationError([{ field: 'loanId', message: 'El identificador no es válido' }])
+        return validationError([{ field: 'loanId', message: MESSAGES.uuid }])
       }
       const state = store.read()
       const loan = state.loans.find((l) => l.id === loanId)
@@ -231,6 +326,35 @@ export function createHandlers(store: MockStore, options: HandlerOptions = {}): 
         loans: state.loans.map((l) => (l.id === loanId ? returned : l)),
       })
       return HttpResponse.json(toLoan(returned))
+    }),
+
+    // SPEC-LIB-03. Con varios conflictos a la vez, el orden es: devuelto (RENEW-R3),
+    // ya renovado (RENEW-R2) y vencido (RENEW-R3).
+    http.post('*/api/loans/:loanId/renew', ({ params }) => {
+      const loanId = String(params.loanId)
+      if (!UUID.test(loanId)) {
+        return validationError([{ field: 'loanId', message: MESSAGES.uuid }])
+      }
+      const state = store.read()
+      const loan = state.loans.find((l) => l.id === loanId)
+      if (!loan) return problem(404, 'LOAN_NOT_FOUND', 'No existe el préstamo solicitado')
+      if (loan.returnedAt !== null) {
+        return renewalProblem('ALREADY_RETURNED', 'El préstamo ya fue devuelto')
+      }
+      if (loan.renewalCount >= MAX_RENEWALS) {
+        return renewalProblem('RENEWAL_LIMIT_REACHED', 'El préstamo ya fue renovado')
+      }
+      // Renovar justo en el instante dueAt está permitido: computeLoanStatus usa "mayor que".
+      if (computeLoanStatus(loan, now()) === 'OVERDUE') {
+        return renewalProblem('LOAN_OVERDUE', 'El préstamo está vencido y no se puede renovar')
+      }
+      const renewed: StoredLoan = {
+        ...loan,
+        dueAt: new Date(new Date(loan.dueAt).getTime() + RENEWAL_DAYS * DAY_MS).toISOString(),
+        renewalCount: loan.renewalCount + 1,
+      }
+      store.write({ ...state, loans: state.loans.map((l) => (l.id === loanId ? renewed : l)) })
+      return HttpResponse.json(toLoan(renewed))
     }),
   ]
 }

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { parse as parseYaml } from 'yaml'
 import {
   MARKER,
   buildComment,
@@ -21,6 +22,7 @@ import { convertToGif, hasFfmpeg } from './videos-to-gif.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 const fixtures = join(here, '..', '__fixtures__', 'evidence')
 const openapi = join(here, '..', '..', 'specs', 'api', 'openapi.yaml')
+const workflows = join(here, '..', '..', '.github', 'workflows')
 const needs = JSON.parse(readFileSync(join(fixtures, 'needs.json'), 'utf8'))
 const base = 'https://raw.githubusercontent.com/org/repo/evidence/pr-7/99'
 
@@ -60,10 +62,27 @@ describe('build-comment: resúmenes por herramienta', () => {
     })
   })
 
-  it('lee las 7 operaciones del contrato real', () => {
+  it('lee las 8 operaciones del contrato real', () => {
     assert.deepEqual(
       loadOperations(openapi).map((op) => op.operationId),
-      ['getHealth', 'listBooks', 'createBook', 'getBook', 'listLoans', 'createLoan', 'returnLoan'],
+      [
+        'getHealth',
+        'listBooks',
+        'createBook',
+        'getBook',
+        'listLoans',
+        'createLoan',
+        'returnLoan',
+        'renewLoan',
+      ],
+    )
+  })
+
+  it('ai-generate-tests.yml ofrece todas las operaciones del contrato', () => {
+    const workflow = parseYaml(readFileSync(join(workflows, 'ai-generate-tests.yml'), 'utf8'))
+    assert.deepEqual(
+      workflow.on.workflow_dispatch.inputs.operationId.options,
+      loadOperations(openapi).map((op) => op.operationId),
     )
   })
 })
@@ -102,6 +121,25 @@ describe('build-comment: comentario completo', () => {
       comment,
       /\| `createLoan` \| `POST \/api\/loans` \| ✅ 201 · 400 · 404 · 409 \| ✅ 201 · 404/,
     )
+    assert.match(
+      comment,
+      /\| `renewLoan` \| `POST \/api\/loans\/\{loanId\}\/renew` \| ✅ 200 · 400 · 404 · 409 \| ✅ 200 · 409/,
+    )
+  })
+
+  it('muestra la etapa 0 y un flujo flaky como pasado al reintentar', () => {
+    assert.match(comment, /\| \*\*0 · Detectar cambios\*\* .* ✅ `cambios` \| ✅ \|$/m)
+    assert.match(comment, /4 de 5 escenarios pasaron/)
+    assert.match(
+      comment,
+      /⚠️ <b>FLOW-PRE-04<\/b> · Renovar un préstamo al día · pasó al reintentar/,
+    )
+  })
+
+  it('muestra una fila de Lighthouse por URL y CodeQL como informativo', () => {
+    assert.match(comment, /\| Lighthouse CI `\/` \| Calidad web \| ✅ Rendimiento 97/)
+    assert.match(comment, /\| Lighthouse CI `\/prestamos` \| Calidad web \| ✅ Rendimiento 95/)
+    assert.match(comment, /\| CodeQL \| SAST \| ℹ️ informativo \(ver pestaña Security\) \|/)
   })
 
   it('no usa guiones largos ni punto y coma en el texto', () => {

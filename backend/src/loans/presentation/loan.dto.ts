@@ -16,6 +16,7 @@ export interface LoanResponse {
   dueAt: string
   returnedAt: string | null
   status: LoanStatus
+  renewalCount: number
 }
 
 export function toLoanResponse(loan: LoanDetails): LoanResponse {
@@ -28,5 +29,6 @@ export function toLoanResponse(loan: LoanDetails): LoanResponse {
     dueAt: loan.dueAt.toISOString(),
     returnedAt: loan.returnedAt ? loan.returnedAt.toISOString() : null,
     status: loan.status,
+    renewalCount: loan.renewalCount,
   }
 }

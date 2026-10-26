@@ -116,6 +116,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/loans/{loanId}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renueva un préstamo por 7 días
+         * @description Suma 7 días a dueAt e incrementa renewalCount (RENEW-R1). Solo una renovación por
+         *     préstamo (RENEW-R2) y solo si el préstamo está al día y no se ha devuelto (RENEW-R3).
+         *     Reglas en `specs/features/SPEC-LIB-03-renovacion.md`.
+         */
+        post: operations["renewLoan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -170,12 +192,17 @@ export interface components {
             loanedAt: string;
             /**
              * Format: date-time
-             * @description loanedAt más 14 días (LOAN-R3).
+             * @description loanedAt más 14 días (LOAN-R3), más 7 días si se renovó (RENEW-R1).
              */
             dueAt: string;
             /** Format: date-time */
             returnedAt: string | null;
             status: components["schemas"]["LoanStatus"];
+            /**
+             * @description Veces que se renovó el préstamo (RENEW-R2).
+             * @example 0
+             */
+            renewalCount: number;
         };
         /**
          * @description ACTIVE si no se ha devuelto y no está vencido, OVERDUE si no se ha devuelto
@@ -202,6 +229,28 @@ export interface components {
             code: components["schemas"]["ErrorCode"];
             errors?: components["schemas"]["FieldError"][];
         };
+        /**
+         * @description Error 409 de renewLoan, con el mismo formato que Problem (RFC 9457).
+         *     Tiene su propio enum de códigos porque agregar valores al enum compartido ErrorCode
+         *     cambia las respuestas de todos los endpoints y oasdiff lo marca como cambio que rompe
+         *     compatibilidad (un cliente con un switch exhaustivo sobre code dejaría de compilar).
+         */
+        RenewalProblem: {
+            /**
+             * Format: uri-reference
+             * @example about:blank
+             */
+            type: string;
+            title: string;
+            status: number;
+            detail?: string;
+            code: components["schemas"]["RenewalErrorCode"];
+        };
+        /**
+         * @description Códigos de rechazo de una renovación (RENEW-R2 y RENEW-R3).
+         * @enum {string}
+         */
+        RenewalErrorCode: "ALREADY_RETURNED" | "RENEWAL_LIMIT_REACHED" | "LOAN_OVERDUE";
         FieldError: {
             field: string;
             message: string;
@@ -247,6 +296,24 @@ export interface components {
                  *       "status": 404,
                  *       "code": "BOOK_NOT_FOUND",
                  *       "detail": "No existe el libro solicitado"
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description El préstamo no existe */
+        LoanNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "type": "about:blank",
+                 *       "title": "Not Found",
+                 *       "status": 404,
+                 *       "code": "LOAN_NOT_FOUND",
+                 *       "detail": "No existe el préstamo solicitado"
                  *     }
                  */
                 "application/problem+json": components["schemas"]["Problem"];
@@ -495,7 +562,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
-            404: components["responses"]["NotFound"];
+            404: components["responses"]["LoanNotFound"];
             /** @description El préstamo ya fue devuelto (LOAN-R5) */
             409: {
                 headers: {
@@ -512,6 +579,52 @@ export interface operations {
                      *     }
                      */
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    renewLoan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identificador del préstamo. */
+                loanId: components["parameters"]["LoanId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Préstamo renovado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Loan"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["LoanNotFound"];
+            /**
+             * @description No se puede renovar: ya se renovó (RENEW-R2), está vencido o ya se devolvió (RENEW-R3).
+             *     Orden si se incumplen varias reglas: ALREADY_RETURNED, RENEWAL_LIMIT_REACHED y LOAN_OVERDUE.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "about:blank",
+                     *       "title": "Conflict",
+                     *       "status": 409,
+                     *       "code": "RENEWAL_LIMIT_REACHED",
+                     *       "detail": "El préstamo ya fue renovado"
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["RenewalProblem"];
                 };
             };
         };

@@ -23,6 +23,7 @@ export const MARKER = '<!-- ci-evidence -->'
 
 /** Etapas del pipeline y los jobs de ci.yml que pertenecen a cada una. */
 export const STAGES = [
+  { n: 0, name: 'Detectar cambios', what: 'qué apps tocó el PR (paths-filter)', jobs: ['cambios'] },
   { n: 1, name: 'Pre-commit y secretos', what: 'gitleaks', jobs: ['secretos'] },
   {
     n: 2,
@@ -64,6 +65,7 @@ export const STAGES = [
   },
 ]
 
+const FLOW_ICON = { passed: '✅', flaky: '⚠️', skipped: '⏭️' }
 const RESULT_ICON = { success: '✅', failure: '❌', cancelled: '🚫', skipped: '⏭️' }
 const RESULT_TEXT = {
   success: 'ok',
@@ -121,21 +123,32 @@ export function loadArtifacts(dir) {
     .filter((f) => f.endsWith(`${sep}manifest.json`))
     .map(readJson)
     .find((data) => Array.isArray(data) && data[0]?.summary)
+  // Una corrida representativa por URL (lighthouserc.json recolecta / y /prestamos)
   if (lhciManifest) {
-    const run = lhciManifest.find((r) => r.isRepresentativeRun) ?? lhciManifest[0]
-    lighthouse = { url: run.url, scores: run.summary }
+    const runs = lhciManifest.filter((r) => r.isRepresentativeRun)
+    lighthouse = (runs.length > 0 ? runs : [lhciManifest[0]]).map((run) => ({
+      url: run.url,
+      scores: run.summary,
+    }))
   } else {
     const lhr = findFile(files, /lhr-[^/\\]*\.json$/)
     const data = lhr ? readJson(lhr) : null
     if (data?.categories) {
-      lighthouse = {
-        url: data.finalDisplayedUrl ?? data.requestedUrl,
-        scores: Object.fromEntries(Object.entries(data.categories).map(([k, v]) => [k, v.score])),
-      }
+      lighthouse = [
+        {
+          url: data.finalDisplayedUrl ?? data.requestedUrl,
+          scores: Object.fromEntries(Object.entries(data.categories).map(([k, v]) => [k, v.score])),
+        },
+      ]
     }
   }
   const links = json('links.json')
-  if (lighthouse && links) lighthouse.report = Object.values(links)[0]
+  if (lighthouse && links) {
+    // links.json usa la URL auditada como clave. Con una sola URL basta el único enlace
+    const values = Object.values(links)
+    for (const run of lighthouse)
+      run.report = links[run.url] ?? (values.length === 1 ? values[0] : undefined)
+  }
 
   const junitFile = findFile(files, /schemathesis[^]*\.xml$/) ?? findFile(files, 'junit.xml')
 
@@ -305,12 +318,14 @@ function frontendTarget(title, manifest, ctx) {
     lines.push('_No disponible: la etapa no corrió o no dejó evidencia._', '')
     return lines
   }
-  const passed = manifest.items.filter((item) => item.status === 'passed').length
+  // flaky: pasó en el reintento de Playwright. Cuenta como pasado, igual que en el check
+  const passed = manifest.items.filter((item) => ['passed', 'flaky'].includes(item.status)).length
   lines.push(`${passed} de ${manifest.items.length} escenarios pasaron.`, '')
   manifest.items.forEach((item, index) => {
-    const icon = item.status === 'passed' ? '✅' : item.status === 'skipped' ? '⏭️' : '❌'
+    const icon = FLOW_ICON[item.status] ?? '❌'
+    const note = item.status === 'flaky' ? ' · pasó al reintentar' : ''
     lines.push(`<details${index < ctx.openItems ? ' open' : ''}>`)
-    lines.push(`<summary>${icon} <b>${item.id}</b> · ${item.title}</summary>`, '')
+    lines.push(`<summary>${icon} <b>${item.id}</b> · ${item.title}${note}</summary>`, '')
     if (item.video) {
       const gif = item.video.replace(/\.webm$/, '.gif')
       const gifExists = ctx.example || existsSync(join(manifest.dir, gif))
@@ -438,6 +453,15 @@ function trivyCell(summary) {
   return `${icon} ${fmtCounts(summary.counts)}${extra.length ? ` · ${extra.join(' · ')}` : ''}`
 }
 
+/** Ruta de la URL auditada por Lighthouse ("/prestamos"), o la URL tal cual si no se puede leer. */
+function lighthousePath(url) {
+  try {
+    return new URL(url).pathname
+  } catch {
+    return url ?? ''
+  }
+}
+
 function zapCell(summary) {
   if (!summary) return 'no disponible'
   const icon = summary.counts.High > 0 ? '❌' : summary.counts.Medium > 0 ? '⚠️' : '✅'
@@ -467,7 +491,14 @@ function securitySection(artifacts, needs) {
         ? `${semgrep.counts.ERROR > 0 ? '❌' : semgrep.counts.WARNING > 0 ? '⚠️' : '✅'} ${fmtCounts(semgrep.counts)}`
         : 'no disponible',
     ],
-    ['CodeQL', 'SAST', `${jobCell('codeql')} (detalle en la pestaña Security)`],
+    // CodeQL no bloquea por hallazgos: solo sube el SARIF a la pestaña Security
+    [
+      'CodeQL',
+      'SAST',
+      ['failure', 'cancelled'].includes(needs.codeql?.result)
+        ? `${jobCell('codeql')} · informativo (ver pestaña Security)`
+        : 'ℹ️ informativo (ver pestaña Security)',
+    ],
     ['Dependency review y npm audit', 'SCA', jobCell('dependencias')],
     ['Trivy fs', 'SCA, secretos e IaC', trivyCell(summarizeTrivy(artifacts.trivy.fs))],
     ['Trivy imagen backend', 'Contenedor', trivyCell(summarizeTrivy(artifacts.trivy.backend))],
@@ -476,22 +507,24 @@ function securitySection(artifacts, needs) {
     ['OWASP ZAP API scan (backend)', 'DAST', zapCell(zapApi)],
   ]
   const lh = artifacts.lighthouse
-  if (lh) {
+  if (lh?.length) {
     const names = {
       performance: 'Rendimiento',
       accessibility: 'Accesibilidad',
       'best-practices': 'Buenas prácticas',
       seo: 'SEO',
     }
-    const scores = Object.entries(lh.scores)
-      .filter(([k]) => names[k])
-      .map(([k, v]) => `${names[k]} ${Math.round(v * 100)}`)
-    const min = Math.min(...Object.values(lh.scores).map((v) => v * 100))
-    rows.push([
-      'Lighthouse CI',
-      'Calidad web',
-      `${min >= 90 ? '✅' : '⚠️'} ${scores.join(' · ')}${lh.report ? ` · [reporte](${lh.report})` : ''}`,
-    ])
+    for (const run of lh) {
+      const scores = Object.entries(run.scores)
+        .filter(([k]) => names[k])
+        .map(([k, v]) => `${names[k]} ${Math.round(v * 100)}`)
+      const min = Math.min(...Object.values(run.scores).map((v) => v * 100))
+      rows.push([
+        `Lighthouse CI \`${lighthousePath(run.url)}\``,
+        'Calidad web',
+        `${min >= 90 ? '✅' : '⚠️'} ${scores.join(' · ')}${run.report ? ` · [reporte](${run.report})` : ''}`,
+      ])
+    }
   } else {
     rows.push(['Lighthouse CI', 'Calidad web', 'no disponible'])
   }

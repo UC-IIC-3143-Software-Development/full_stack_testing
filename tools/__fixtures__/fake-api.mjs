@@ -158,6 +158,7 @@ export function createFakeApi({ now = () => new Date() } = {}) {
           loanedAt: loanedAt.toISOString(),
           dueAt: new Date(loanedAt.getTime() + 14 * DAY_MS).toISOString(),
           returnedAt: null,
+          renewalCount: 0,
         }
         loans.set(loan.id, loan)
         return json(res, 201, loanView(loan))
@@ -174,6 +175,24 @@ export function createFakeApi({ now = () => new Date() } = {}) {
           return problem(res, 409, 'ALREADY_RETURNED', 'El préstamo ya fue devuelto')
         loan.returnedAt = now().toISOString()
         books.get(loan.bookId).availableCopies += 1
+        return json(res, 200, loanView(loan))
+      },
+    ],
+    [
+      'POST',
+      /^\/api\/loans\/([^/]+)\/renew$/,
+      (req, res, [id]) => {
+        if (!UUID.test(id)) return invalid(res, 'loanId', 'Debe ser un UUID')
+        const loan = loans.get(id)
+        if (!loan) return problem(res, 404, 'LOAN_NOT_FOUND', 'No existe el préstamo')
+        if (loan.returnedAt)
+          return problem(res, 409, 'ALREADY_RETURNED', 'El préstamo ya fue devuelto')
+        if (loan.renewalCount >= 1)
+          return problem(res, 409, 'RENEWAL_LIMIT_REACHED', 'El préstamo ya fue renovado')
+        if (now().getTime() > new Date(loan.dueAt).getTime())
+          return problem(res, 409, 'LOAN_OVERDUE', 'El préstamo está vencido y no se puede renovar')
+        loan.dueAt = new Date(new Date(loan.dueAt).getTime() + 7 * DAY_MS).toISOString()
+        loan.renewalCount += 1
         return json(res, 200, loanView(loan))
       },
     ],

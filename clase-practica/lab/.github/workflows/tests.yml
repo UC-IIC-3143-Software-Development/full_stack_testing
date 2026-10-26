@@ -5,13 +5,19 @@ on:
   push:
     branches: [main]
 
+# Mínimo privilegio: el workflow solo lee el código
+permissions:
+  contents: read
+
 jobs:
   # Loop rápido (micro): debe tardar "lo que dura preparar un té" (libro, p. 127).
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -27,18 +33,26 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Los valores del PR (rama base y nombres de archivo) llegan por env y no se
+      # interpolan en el script: un archivo llamado src/a$(curl ...).js no se ejecuta
       - name: Archivos de src modificados
         id: changed
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'src/*.js' | grep -v server.js | paste -sd, -)
+          files=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- 'src/*.js' | grep -v server.js | paste -sd, -)
           echo "files=$files" >> "$GITHUB_OUTPUT"
-      - if: steps.changed.outputs.files != ''
-        run: npx stryker run --mutate "${{ steps.changed.outputs.files }}" --thresholds.break 80
+      - name: Mutation testing de los archivos modificados
+        if: steps.changed.outputs.files != ''
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: npx stryker run --mutate "$FILES" --thresholds.break 80

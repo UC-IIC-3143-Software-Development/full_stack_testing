@@ -19,14 +19,14 @@ Simular la API con MSW para probar el frontend sin backend: en Vitest (Node) y e
 
 ## Elementos
 
-| Archivo                     | Propósito                                                                                    |
-| --------------------------- | -------------------------------------------------------------------------------------------- |
-| `loan-status.ts`            | Versión mínima de LOAN-R6 para devolver estados realistas (la regla real vive en el backend) |
-| `fixtures.ts`               | Libros de `specs/flows/README.md`, reloj fijo y préstamos de `carla@uc.cl`                   |
-| `db.ts`                     | "Base de datos" fake: en memoria (Node) o en `sessionStorage` (navegador)                    |
-| `handlers.ts`               | Un handler por operación del contrato, con errores `application/problem+json`                |
-| `browser.ts` / `node.ts`    | `setupWorker` y `setupServer` con los mismos handlers                                        |
-| `handlers.contract.test.ts` | Valida cada respuesta contra el contrato con Ajv (JSON Schema 2020-12)                       |
+| Archivo                     | Propósito                                                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `loan-status.ts`            | Versión mínima de LOAN-R6 para devolver estados realistas (la regla real vive en el backend)               |
+| `fixtures.ts`               | Libros de `specs/flows/README.md`, reloj fijo y préstamos de `carla@uc.cl` (sin renovar, `renewalCount` 0) |
+| `db.ts`                     | "Base de datos" fake: en memoria (Node) o en `sessionStorage` (navegador)                                  |
+| `handlers.ts`               | Un handler por operación del contrato, con errores `application/problem+json`                              |
+| `browser.ts` / `node.ts`    | `setupWorker` y `setupServer` con los mismos handlers                                                      |
+| `handlers.contract.test.ts` | Valida cada respuesta contra el contrato con Ajv (JSON Schema 2020-12)                                     |
 
 ## Reglas que implementa
 
@@ -38,12 +38,16 @@ Simular la API con MSW para probar el frontend sin backend: en Vitest (Node) y e
 | Regla   | Dónde se implementa                      | Test                                                                                             |
 | ------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | MOCK-R1 | `handlers.ts` (un handler por operación) | `handlers.contract.test.ts` (2 tests de cobertura)                                               |
-| MOCK-R2 | `handlers.ts` y `problem()`              | `handlers.contract.test.ts` (21 casos, cada uno con el ID de la regla de negocio que representa) |
+| MOCK-R2 | `handlers.ts` y `problem()`              | `handlers.contract.test.ts` (27 casos, cada uno con el ID de la regla de negocio que representa) |
 
 Reglas de negocio mínimas que simula (para que los flujos sean realistas, no para probarlas aquí):
 BOOK-R1, BOOK-R2, BOOK-R3, BOOK-R4, BOOK-R5, BOOK-R6, LOAN-R1, LOAN-R2, LOAN-R3, LOAN-R4, LOAN-R5,
-LOAN-R6 y LOAN-R7. Cuando hay varios conflictos a la vez, el orden es: duplicado (LOAN-R4), límite
-(LOAN-R2) y copias (LOAN-R1).
+LOAN-R6, LOAN-R7, RENEW-R1, RENEW-R2, RENEW-R3 y RENEW-R4. Cuando hay varios conflictos a la vez, el
+orden al pedir es: duplicado (LOAN-R4), límite (LOAN-R2) y copias (LOAN-R1). Al renovar es: devuelto
+(RENEW-R3), ya renovado (RENEW-R2) y vencido (RENEW-R3). El orden y los textos `detail` vienen de
+SPEC-LIB-03 (Orden de los errores al renovar), igual que en el backend. Los 409 de renovar usan el
+schema `RenewalProblem` del contrato. Los textos de los 400 son los mismos del backend (validador del
+contrato y dominio), así la UI muestra lo mismo con y sin backend.
 
 ## Cómo se prueba esta capa
 

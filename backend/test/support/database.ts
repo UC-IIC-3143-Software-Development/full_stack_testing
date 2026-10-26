@@ -28,14 +28,24 @@ export async function truncateAll(dataSource: DataSource): Promise<void> {
  * de books con FOR UPDATE. Las solicitudes que intenten modificarlas quedan esperando
  * hasta `release()`, así todas compiten de verdad por el mismo recurso.
  */
-export async function holdBookRows(
-  dataSource: DataSource,
-  bookIds: string[],
-): Promise<{ release(): Promise<void> }> {
+export function holdBookRows(dataSource: DataSource, bookIds: string[]): Promise<RowBarrier> {
+  return holdRows(dataSource, 'SELECT id FROM books WHERE id = ANY($1) FOR UPDATE', bookIds)
+}
+
+/** La misma barrera sobre filas de loans: las renovaciones simultáneas esperan en su UPDATE. */
+export function holdLoanRows(dataSource: DataSource, loanIds: string[]): Promise<RowBarrier> {
+  return holdRows(dataSource, 'SELECT id FROM loans WHERE id = ANY($1) FOR UPDATE', loanIds)
+}
+
+export interface RowBarrier {
+  release(): Promise<void>
+}
+
+async function holdRows(dataSource: DataSource, sql: string, ids: string[]): Promise<RowBarrier> {
   const runner = dataSource.createQueryRunner()
   await runner.connect()
   await runner.startTransaction()
-  await runner.query('SELECT id FROM books WHERE id = ANY($1) FOR UPDATE', [bookIds])
+  await runner.query(sql, [ids])
   return {
     async release() {
       await runner.commitTransaction()

@@ -112,19 +112,19 @@ async function expectContract(testCase: ContractCase) {
   const response = await send(testCase.request)
 
   expect(response.status).toBe(testCase.status)
-  const documented = documentedResponse(op, response.status)
   expect(
-    documented,
+    Object.keys(op.operation.responses),
     `${op.operation.operationId} no documenta el status ${response.status}`,
-  ).not.toBeUndefined()
+  ).toContain(String(response.status))
+  const documented = documentedResponse(op, response.status)!
 
   // "application/problem+json" sin parámetros como el charset.
   const mediaType = (response.headers.get('content-type') ?? '').replace(/\s*\u003b.*$/, '')
-  const content = documented!.content?.[mediaType]
   expect(
-    content,
+    Object.keys(documented.content ?? {}),
     `${op.operation.operationId} ${response.status} no documenta ${mediaType}`,
-  ).not.toBeUndefined()
+  ).toContain(mediaType)
+  const content = documented.content![mediaType]
 
   const body: unknown = await response.json()
   const validate = ajv.compile(rewriteRefs(content!.schema))
@@ -143,7 +143,12 @@ const newBook = (isbn: string, title: string): ApiRequest => ({
   path: '/api/books',
   body: { isbn, title, author: 'Autora de prueba', totalCopies: 2 },
 })
+const renew = (loanId: string): ApiRequest => ({
+  method: 'POST',
+  path: `/api/loans/${loanId}/renew`,
+})
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000'
+const OVERDUE_LOAN = '0a7d3b52-1c4e-4f8a-9b6d-000000000101'
 const ACTIVE_LOAN = '0a7d3b52-1c4e-4f8a-9b6d-000000000102'
 const RETURNED_LOAN = '0a7d3b52-1c4e-4f8a-9b6d-000000000103'
 
@@ -238,6 +243,17 @@ const CASES = {
     status: 400,
     code: 'VALIDATION_ERROR',
   },
+  renewLoan: { request: renew(ACTIVE_LOAN), status: 200 },
+  renewLoanTwice: {
+    given: [renew(ACTIVE_LOAN)],
+    request: renew(ACTIVE_LOAN),
+    status: 409,
+    code: 'RENEWAL_LIMIT_REACHED',
+  },
+  renewLoanOverdue: { request: renew(OVERDUE_LOAN), status: 409, code: 'LOAN_OVERDUE' },
+  renewLoanReturned: { request: renew(RETURNED_LOAN), status: 409, code: 'ALREADY_RETURNED' },
+  renewLoanUnknown: { request: renew(UNKNOWN_ID), status: 404, code: 'LOAN_NOT_FOUND' },
+  renewLoanBadId: { request: renew('123'), status: 400, code: 'VALIDATION_ERROR' },
 } satisfies Record<string, ContractCase>
 
 describe('Mock server vs specs/api/openapi.yaml', () => {
@@ -279,6 +295,18 @@ describe('Mock server vs specs/api/openapi.yaml', () => {
     expectContract(CASES.returnLoanTwice))
   it('[LOAN-R5] returnLoan responde 400 si loanId no es un UUID', () =>
     expectContract(CASES.returnLoanBadId))
+  it('[RENEW-R1] renewLoan responde 200 al renovar un préstamo al día', () =>
+    expectContract(CASES.renewLoan))
+  it('[RENEW-R2] renewLoan responde 409 si el préstamo ya se renovó', () =>
+    expectContract(CASES.renewLoanTwice))
+  it('[RENEW-R3] renewLoan responde 409 si el préstamo está vencido', () =>
+    expectContract(CASES.renewLoanOverdue))
+  it('[RENEW-R3] renewLoan responde 409 si el préstamo ya fue devuelto', () =>
+    expectContract(CASES.renewLoanReturned))
+  it('[RENEW-R4] renewLoan responde 404 si el préstamo no existe', () =>
+    expectContract(CASES.renewLoanUnknown))
+  it('[RENEW-R4] renewLoan responde 400 si loanId no es un UUID', () =>
+    expectContract(CASES.renewLoanBadId))
 })
 
 describe('Cobertura del contrato en el mock server', () => {

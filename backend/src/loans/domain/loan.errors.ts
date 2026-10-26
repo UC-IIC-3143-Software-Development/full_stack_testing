@@ -35,3 +35,21 @@ export class LoanNotFoundError extends DomainError {
     super('No existe el préstamo solicitado')
   }
 }
+
+/** RENEW-R2: el préstamo ya usó su única renovación. */
+export class RenewalLimitReachedError extends DomainError {
+  readonly code = 'RENEWAL_LIMIT_REACHED'
+
+  constructor(readonly loanId: string) {
+    super('El préstamo ya fue renovado')
+  }
+}
+
+/** RENEW-R3: un préstamo vencido no se puede renovar. */
+export class LoanOverdueError extends DomainError {
+  readonly code = 'LOAN_OVERDUE'
+
+  constructor(readonly loanId: string) {
+    super('El préstamo está vencido y no se puede renovar')
+  }
+}

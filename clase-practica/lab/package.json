@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Laboratorio: full stack testing con IA sin inflar la suite",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "start": "node src/server.js",
     "test": "vitest run",

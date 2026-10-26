@@ -36,8 +36,11 @@ export default defineConfig({
   ],
   // Las imágenes de referencia son de Linux (imagen Docker de Playwright). En otro SO se omiten.
   ignoreSnapshots: process.platform !== 'linux',
+  // Tolerancia absoluta y estricta: las capturas se generan y comparan en la misma imagen Docker,
+  // así que no hay ruido de fuentes. Con maxDiffPixelRatio 0.01 (1 % de una página de 1280x800,
+  // unos 10.000 píxeles) el botón "Renovar" de SPEC-LIB-03 pasaba sin que el test lo notara.
   expect: {
-    toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixelRatio: 0.01 },
+    toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 25 },
   },
   globalSetup: target === 'fullstack' ? './tests/e2e/global-setup.ts' : undefined,
   use: {

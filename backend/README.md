@@ -2,8 +2,9 @@
 
 API REST de la Biblioteca UC hecha con **NestJS 12**, **TypeORM 1.x** y **PostgreSQL 17**.
 Implementa exactamente [`specs/api/openapi.yaml`](../specs/api/openapi.yaml) y las reglas
-`BOOK-R1` a `BOOK-R6` ([SPEC-LIB-01](../specs/features/SPEC-LIB-01-catalogo.md)) y
-`LOAN-R1` a `LOAN-R7` ([SPEC-LIB-02](../specs/features/SPEC-LIB-02-prestamos.md)).
+`BOOK-R1` a `BOOK-R6` ([SPEC-LIB-01](../specs/features/SPEC-LIB-01-catalogo.md)),
+`LOAN-R1` a `LOAN-R7` ([SPEC-LIB-02](../specs/features/SPEC-LIB-02-prestamos.md)) y
+`RENEW-R1` a `RENEW-R4` ([SPEC-LIB-03](../specs/features/SPEC-LIB-03-renovacion.md)).
 
 Es material de clase: el código es corto a propósito y los comentarios explican el porqué.
 
@@ -53,7 +54,7 @@ src/
 │   ├── infrastructure/     TypeOrmBookRepository y entidad de persistencia
 │   ├── presentation/       BooksController
 │   └── books.module.ts     Composición: qué adaptador implementa cada puerto
-├── loans/                  Préstamos (SPEC-LIB-02), mismas cuatro capas
+├── loans/                  Préstamos y renovaciones (SPEC-LIB-02 y SPEC-LIB-03), mismas cuatro capas
 ├── health/                 GET /api/health (SELECT 1)
 ├── shared/                 Núcleo compartido: Clock, UnitOfWork, errores, validación OpenAPI
 ├── database/               Data source, migraciones y script de migración
@@ -78,8 +79,9 @@ Decisiones que vale la pena mirar:
   `AsyncLocalStorage` y los repositorios lo usan sin enterarse.
 - **La base de datos también defiende las reglas** (cap. 5 del libro, _data testing_):
   índice único de ISBN (BOOK-R2), `CHECK` de copias (BOOK-R4), índice único parcial de
-  préstamos no devueltos (LOAN-R4), `UPDATE` condicional para la última copia (LOAN-R1) y
-  `pg_advisory_xact_lock` por correo (LOAN-R2).
+  préstamos no devueltos (LOAN-R4), `UPDATE` condicional para la última copia (LOAN-R1),
+  `pg_advisory_xact_lock` por correo (LOAN-R2) y, para la renovación, `CHECK` de
+  `renewal_count` entre 0 y 1 más un `UPDATE` condicional sobre `renewal_count` (RENEW-R2).
 
 ## Validación guiada por el contrato
 
@@ -98,9 +100,9 @@ Si el contrato cambia, la validación cambia sola.
 
 | Script                     | Qué prueba                                                   | Dobles                                  |                      Tests | Cuándo  |
 | -------------------------- | ------------------------------------------------------------ | --------------------------------------- | -------------------------: | ------- |
-| `npm run test:unit`        | Dominio y casos de uso                                       | ninguno en dominio, fakes en aplicación |                         56 | cada PR |
-| `npm run test:integration` | Repositorios, restricciones, concurrencia y migraciones      | ninguno: PostgreSQL real                |                         19 | cada PR |
-| `npm run test:contract`    | La API completa por HTTP, validada contra `openapi.yaml`     | ninguno: app real y PostgreSQL          |                         12 | cada PR |
+| `npm run test:unit`        | Dominio y casos de uso                                       | ninguno en dominio, fakes en aplicación |                         63 | cada PR |
+| `npm run test:integration` | Repositorios, restricciones, concurrencia y migraciones      | ninguno: PostgreSQL real                |                         22 | cada PR |
+| `npm run test:contract`    | La API completa por HTTP, validada contra `openapi.yaml`     | ninguno: app real y PostgreSQL          |                         15 | cada PR |
 | `npm run test:arch`        | Reglas de dependencia entre capas (ARCH-R1 a ARCH-R5)        | no aplica                               |                   5 reglas | cada PR |
 | `npm run test:mutation`    | Calidad de los tests unitarios (Stryker)                     | no aplica                               |                  no aplica | nightly |
 | Schemathesis (en CI)       | Fuzzing desde el contrato: sin 500, status y schemas válidos | no aplica                               | cientos de casos generados | cada PR |
@@ -158,13 +160,16 @@ un test: abrir una conexión tarda más que la transacción completa. Los tests 
 LOAN-R2 usan una barrera: una transacción aparte bloquea las filas con `FOR UPDATE`, el test
 espera (consultando `pg_stat_activity`, sin `sleep`) a que todas las solicitudes estén
 bloqueadas y recién entonces las libera. Si quitas el advisory lock o el `WHERE
-available_copies > 0`, el test falla.
+available_copies > 0`, el test falla. RENEW-R2 usa la misma barrera sobre la fila del
+préstamo: dos renovaciones simultáneas, exactamente una gana. Si el `UPDATE` de
+`markRenewed` no exige `renewal_count` anterior, las dos responden 200 y el test falla.
 
 ### Contrato: la API completa contra el OpenAPI
 
 Los tests de `test/contract/` levantan la app real (`AppModule` sin overrides, con la misma
 configuración de `main.ts`) contra PostgreSQL en Testcontainers y la recorren por HTTP con
-supertest: crear un libro, buscar, prestar, agotar, listar, devolver y devolver otra vez.
+supertest: crear un libro, buscar, prestar, agotar, listar, devolver, devolver otra vez,
+renovar y renovar otra vez.
 
 Cada respuesta pasa por `expectToMatchContract(response, 'createLoan')`, que verifica que el
 status esté documentado para esa operación, que el `Content-Type` sea el del contrato y que

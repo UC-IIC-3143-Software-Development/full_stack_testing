@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import { BookOrmEntity } from '../books/infrastructure/book.orm-entity'
 import { LoanOrmEntity } from '../loans/infrastructure/loan.orm-entity'
 import { InitialSchema1792972800000 } from './migrations/1792972800000-initial-schema'
+import { AddLoanRenewalCount1793016000000 } from './migrations/1793016000000-add-loan-renewal-count'
 
 export interface DataSourceSettings {
   databaseUrl: string
@@ -18,7 +19,7 @@ export function createDataSource({ databaseUrl, runMigrations = false }: DataSou
     type: 'postgres',
     url: databaseUrl,
     entities: [BookOrmEntity, LoanOrmEntity],
-    migrations: [InitialSchema1792972800000],
+    migrations: [InitialSchema1792972800000, AddLoanRenewalCount1793016000000],
     migrationsTableName: 'migrations',
     migrationsRun: runMigrations,
     synchronize: false,

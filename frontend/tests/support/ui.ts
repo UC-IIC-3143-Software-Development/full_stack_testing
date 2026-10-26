@@ -18,6 +18,14 @@ export function loanItem(page: Page, title: string) {
     .filter({ has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
 }
 
+/** Fecha de devolución de un préstamo: la definición del término "Devolver hasta". */
+export function loanDueDate(page: Page, title: string) {
+  return loanItem(page, title)
+    .locator('div')
+    .filter({ has: page.getByRole('term').filter({ hasText: 'Devolver hasta' }) })
+    .getByRole('definition')
+}
+
 export async function openCatalog(page: Page) {
   await page.goto('/')
   // Con MSW la app se muestra recién cuando el worker está listo: esperamos la grilla.

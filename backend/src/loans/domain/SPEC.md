@@ -1,14 +1,14 @@
 # SPEC · loans · capa domain
 
-| Campo        | Valor                                                                |
-| ------------ | -------------------------------------------------------------------- |
-| Capa         | domain (ver `specs/architecture.md`)                                 |
-| Implementa   | LOAN-R2, LOAN-R3, LOAN-R4, LOAN-R5, LOAN-R6 y LOAN-R7 de SPEC-LIB-02 |
-| Tipo de test | unit sin dobles                                                      |
+| Campo        | Valor                                                                 |
+| ------------ | --------------------------------------------------------------------- |
+| Capa         | domain (ver `specs/architecture.md`)                                  |
+| Implementa   | LOAN-R2 a LOAN-R7 de SPEC-LIB-02 y RENEW-R1 a RENEW-R3 de SPEC-LIB-03 |
+| Tipo de test | unit sin dobles                                                       |
 
 ## Responsabilidad
 
-Representar un préstamo, su fecha de vencimiento, su estado y la política de préstamos.
+Representar un préstamo, su fecha de vencimiento, su estado, su renovación y la política de préstamos.
 
 ## Puede depender de / no puede depender de
 
@@ -18,23 +18,31 @@ Representar un préstamo, su fecha de vencimiento, su estado y la política de p
 
 ## Elementos
 
-| Archivo          | Propósito                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| `email.ts`       | Value object `Email`: normaliza y valida el correo                                         |
-| `loan.ts`        | Entidad inmutable `Loan`: `open`, `markReturned`, `statusAt`                               |
-| `loan-policy.ts` | `assertCanBorrow` y `MAX_UNRETURNED_LOANS = 3`                                             |
-| `loan.errors.ts` | `LoanLimitReachedError`, `DuplicateLoanError`, `AlreadyReturnedError`, `LoanNotFoundError` |
+| Archivo          | Propósito                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `email.ts`       | Value object `Email`: normaliza y valida el correo                                                                                         |
+| `loan.ts`        | Entidad inmutable `Loan`: `open`, `markReturned`, `renew`, `statusAt` y `renewalCount`                                                     |
+| `loan-policy.ts` | `assertCanBorrow` y `MAX_UNRETURNED_LOANS = 3`                                                                                             |
+| `loan.errors.ts` | `LoanLimitReachedError`, `DuplicateLoanError`, `AlreadyReturnedError`, `LoanNotFoundError`, `RenewalLimitReachedError`, `LoanOverdueError` |
 
 ## Reglas que implementa
 
-| Regla   | Dónde se implementa                                                                            | Test                                      |
-| ------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| LOAN-R2 | `assertCanBorrow`: máximo 3 no devueltos (activos o vencidos)                                  | `loan-policy.spec.ts`                     |
-| LOAN-R3 | `Loan.open`: `dueAt = loanedAt + 14 días`                                                      | `loan.spec.ts`                            |
-| LOAN-R4 | `assertCanBorrow`: sin dos préstamos no devueltos del mismo libro. Se revisa antes que LOAN-R2 | `loan-policy.spec.ts`                     |
-| LOAN-R5 | `Loan.markReturned`: registra `returnedAt` o lanza `AlreadyReturnedError`                      | `loan.spec.ts`                            |
-| LOAN-R6 | `Loan.statusAt(now)`: RETURNED, OVERDUE si `now > dueAt`, si no ACTIVE                         | `loan.spec.ts` (límite exacto de `dueAt`) |
-| LOAN-R7 | `Email.create`: minúsculas, sin espacios alrededor, formato y máximo 254                       | `email.spec.ts`                           |
+| Regla    | Dónde se implementa                                                                              | Test                                      |
+| -------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| LOAN-R2  | `assertCanBorrow`: máximo 3 no devueltos (activos o vencidos)                                    | `loan-policy.spec.ts`                     |
+| LOAN-R3  | `Loan.open`: `dueAt = loanedAt + 14 días`                                                        | `loan.spec.ts`                            |
+| LOAN-R4  | `assertCanBorrow`: sin dos préstamos no devueltos del mismo libro. Se revisa antes que LOAN-R2   | `loan-policy.spec.ts`                     |
+| LOAN-R5  | `Loan.markReturned`: registra `returnedAt` o lanza `AlreadyReturnedError`                        | `loan.spec.ts`                            |
+| LOAN-R6  | `Loan.statusAt(now)`: RETURNED, OVERDUE si `now > dueAt`, si no ACTIVE                           | `loan.spec.ts` (límite exacto de `dueAt`) |
+| LOAN-R7  | `Email.create`: minúsculas, sin espacios alrededor, formato y máximo 254                         | `email.spec.ts`                           |
+| RENEW-R1 | `Loan.renew(now)`: `dueAt + 7 días` (no `now + 7`) y `renewalCount + 1`. `Loan.open` parte en 0  | `loan.spec.ts`                            |
+| RENEW-R2 | `Loan.renew`: con `renewalCount >= MAX_RENEWALS` (1) lanza `RenewalLimitReachedError`            | `loan.spec.ts`                            |
+| RENEW-R3 | `Loan.renew`: devuelto lanza `AlreadyReturnedError` y vencido (`now > dueAt`) `LoanOverdueError` | `loan.spec.ts` (límite exacto de `dueAt`) |
+
+Orden de `Loan.renew` si se incumplen varias reglas: devuelto, ya renovado y vencido, con los
+textos `detail` que fija SPEC-LIB-03 ("Orden de los errores al renovar"). Lo verifican dos tests de
+`loan.spec.ts`: renovado y vencido responde `RENEWAL_LIMIT_REACHED`, y devuelto y ya renovado
+responde `ALREADY_RETURNED`.
 
 ## Cómo se prueba esta capa
 

@@ -53,7 +53,8 @@ copias que no existen y limitar cuántos libros puede tener una persona al mismo
   etiqueta de estado: "Activo" (azul `--color-info` #1D4ED8), "Vencido" (rojo `--color-danger`
   #B42318) y "Devuelto" (gris `--color-muted` #475467).
 - **UI-LOAN-3** Cada préstamo no devuelto tiene un botón "Devolver". Al devolver, la etiqueta
-  cambia a "Devuelto" sin recargar la página.
+  cambia a "Devuelto" sin recargar la página. Además se anuncia "Préstamo devuelto" y el foco pasa
+  al título del préstamo.
 - **UI-LOAN-4** Los errores 409 se muestran con mensajes en español:
   `LOAN_LIMIT_REACHED` → "Alcanzaste el máximo de 3 préstamos activos",
   `NO_COPIES_AVAILABLE` → "No quedan copias disponibles",
@@ -70,9 +71,9 @@ copias que no existen y limitar cuántos libros puede tener una persona al mismo
 | LOAN-R5   | unit dominio `loan.spec.ts` · unit aplicación `return-loan.spec.ts` · contrato (200, 404, 409) |
 | LOAN-R6   | unit dominio `loan.spec.ts` (límite exacto de `dueAt`) · unit frontend `loan-status.test.ts` |
 | LOAN-R7   | unit dominio `email.spec.ts` · contrato (400 y 404)                            |
-| UI-LOAN-1 | E2E `FLOW-PRE-01`                                                              |
+| UI-LOAN-1 | unit frontend `date-format.test.ts` · componentes `BorrowForm.test.tsx` · E2E `FLOW-PRE-01` |
 | UI-LOAN-2 | componentes `LoanList.test.tsx` · estilos `loans.style.spec.ts`                |
-| UI-LOAN-3 | E2E `FLOW-PRE-02`                                                              |
+| UI-LOAN-3 | componentes `LoanList.test.tsx` · E2E `FLOW-PRE-02`                            |
 | UI-LOAN-4 | componentes `BorrowForm.test.tsx` · E2E `FLOW-PRE-03`                          |
 
 ## Fuera de alcance

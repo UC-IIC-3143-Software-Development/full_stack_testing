@@ -16,7 +16,9 @@ necesita romper un principio, primero se cambia esta constitución en un PR apar
 2. El orden de trabajo es siempre: **spec → contrato (OpenAPI) → tests que fallan → código → tests verdes**.
 3. Cada regla de negocio tiene un ID (por ejemplo `LOAN-R2`). Ese ID aparece en el
    título de al menos un test. El script `tools/spec-trace.mjs` lo verifica en CI.
-4. Un test sin ID de regla o de flujo es un test huérfano y no se acepta.
+4. Un test sin ID de regla o de flujo es un test huérfano y no se acepta. La única excepción son
+   los tests de `tools/` (`tools/**/*.test.mjs`): verifican la infraestructura de CI y no reglas de
+   negocio, así que no llevan ID y `spec-trace` no los cuenta.
 
 ## P2 · El contrato de la API es `specs/api/openapi.yaml`
 

@@ -12,12 +12,12 @@ npm run dev:mock        # http://localhost:3000 con la API simulada (no necesita
 npm run dev             # http://localhost:3000 contra el backend real en BACKEND_URL (por defecto :3001)
 ```
 
-| Página          | Qué hace                                                             | Reglas               |
-| --------------- | -------------------------------------------------------------------- | -------------------- |
-| `/`             | Catálogo: buscador y grilla de libros con insignia de disponibilidad | UI-CAT-1 a UI-CAT-4  |
-| `/libros/nuevo` | Agregar libro. Valida el ISBN en el navegador                        | UI-CAT-5             |
-| `/libros/[id]`  | Detalle y formulario "Pedir prestado"                                | UI-LOAN-1, UI-LOAN-4 |
-| `/prestamos`    | "Mis préstamos": busca por correo y permite devolver                 | UI-LOAN-2, UI-LOAN-3 |
+| Página          | Qué hace                                                             | Reglas                                       |
+| --------------- | -------------------------------------------------------------------- | -------------------------------------------- |
+| `/`             | Catálogo: buscador y grilla de libros con insignia de disponibilidad | UI-CAT-1 a UI-CAT-4                          |
+| `/libros/nuevo` | Agregar libro. Valida el ISBN en el navegador                        | UI-CAT-5                                     |
+| `/libros/[id]`  | Detalle y formulario "Pedir prestado"                                | UI-LOAN-1, UI-LOAN-4                         |
+| `/prestamos`    | "Mis préstamos": busca por correo y permite devolver y renovar       | UI-LOAN-2, UI-LOAN-3, UI-RENEW-1, UI-RENEW-2 |
 
 ## Capas
 
@@ -105,7 +105,8 @@ Cada escenario graba un video (960x600) y una captura después de cada paso en
 `evidence/manifest.json` (formato de `specs/architecture.md`) y el pipeline lo publica en el PR.
 
 Todos los tests de navegador usan `locale` es-CL, zona `America/Santiago` y el reloj fijo
-`2026-03-02T12:00:00Z` (`tests/support/clock.ts`). Por eso la fecha de devolución siempre es `16-03-2026`.
+`2026-03-02T12:00:00Z` (`tests/support/clock.ts`). Por eso la fecha de devolución siempre es `16-03-2026`
+y, después de renovar (FLOW-PRE-04), `23-03-2026`.
 
 ### Smoke contra el stack real
 
@@ -114,7 +115,8 @@ E2E_BASE_URL=http://localhost:3000 npm run test:e2e:smoke
 ```
 
 No levanta servidor. Un `globalSetup` siembra por la API los libros de las fixtures (si no existen),
-deja Ficciones con 1 copia disponible y devuelve los préstamos que `ana@uc.cl` dejó de otra corrida.
+deja Ficciones con 1 copia disponible y La casa de los espíritus agotado (con préstamos de
+`carla@uc.cl`) y devuelve los préstamos que `ana@uc.cl` dejó de otra corrida.
 El backend debe correr con `CLOCK_FIXED_NOW=2026-03-02T12:00:00Z` para que coincida la fecha.
 
 ### Líneas base de la regresión visual

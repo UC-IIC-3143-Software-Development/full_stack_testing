@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common'
 import { CreateLoan } from '../application/create-loan'
 import { ListLoans } from '../application/list-loans'
+import { RenewLoan } from '../application/renew-loan'
 import { ReturnLoan } from '../application/return-loan'
 import { toLoanResponse, type LoanResponse, type NewLoanRequest } from './loan.dto'
 
@@ -10,6 +11,7 @@ export class LoansController {
     private readonly createLoan: CreateLoan,
     private readonly listLoans: ListLoans,
     private readonly returnLoan: ReturnLoan,
+    private readonly renewLoan: RenewLoan,
   ) {}
 
   /** operationId listLoans */
@@ -31,5 +33,12 @@ export class LoansController {
   @HttpCode(200)
   async return(@Param('loanId') loanId: string): Promise<LoanResponse> {
     return toLoanResponse(await this.returnLoan.execute(loanId))
+  }
+
+  /** operationId renewLoan (SPEC-LIB-03) */
+  @Post(':loanId/renew')
+  @HttpCode(200)
+  async renew(@Param('loanId') loanId: string): Promise<LoanResponse> {
+    return toLoanResponse(await this.renewLoan.execute(loanId))
   }
 }

@@ -80,3 +80,13 @@ jobs:
           fi
           git commit -m "test(visual): capturas de referencia generadas en la imagen de Playwright de CI"
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${BRANCH}"
+          # Un commit hecho con GITHUB_TOKEN no dispara otros workflows (tampoco ci.yml)
+          echo "::warning title=CI sin correr::El commit de las capturas no dispara ci.yml. Haz un push a ${BRANCH} o cierra y reabre el PR."
+          {
+            echo "### ⚠️ El commit de las capturas no dispara el CI"
+            echo ""
+            echo "GitHub no corre workflows por commits hechos con GITHUB_TOKEN, así que ci.yml no corrió sobre este commit"
+            echo "y el PR queda sin el check \"Resultado del pipeline\" para el HEAD nuevo."
+            echo ""
+            echo "Para correr el CI, haz un push a la rama \`${BRANCH}\` (por ejemplo \`git commit --allow-empty\`) o cierra y reabre el PR."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,7 @@
 import { CreateBook } from '../../src/books/application/create-book'
 import { CreateLoan } from '../../src/loans/application/create-loan'
 import { ListLoans } from '../../src/loans/application/list-loans'
+import { RenewLoan } from '../../src/loans/application/renew-loan'
 import { ReturnLoan } from '../../src/loans/application/return-loan'
 import { FixedClock } from '../../src/shared/infrastructure/clock/fixed-clock'
 import { InMemoryBookRepository } from '../fakes/in-memory-book.repository'
@@ -25,5 +26,6 @@ export function createApplication() {
     createLoan: new CreateLoan(books, loans, unitOfWork, clock),
     listLoans: new ListLoans(loans, clock),
     returnLoan: new ReturnLoan(books, loans, unitOfWork, clock),
+    renewLoan: new RenewLoan(loans, unitOfWork, clock),
   }
 }

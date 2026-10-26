@@ -20,4 +20,7 @@ export class LoanOrmEntity {
 
   @Column({ name: 'returned_at', type: 'timestamptz', nullable: true })
   returnedAt: Date | null
+
+  @Column({ name: 'renewal_count', type: 'integer', default: 0 })
+  renewalCount: number
 }

@@ -7,8 +7,7 @@
 # cada una explicada con el defecto que evita.
 #
 # El build falla solo con errores (--fail-severity error). Las advertencias se ven en
-# el log: hoy spectral:oas avisa que createBook, getBook, createLoan y returnLoan no
-# tienen description. Es una mejora pendiente del contrato, no un error.
+# el log. Hoy el contrato no tiene errores ni advertencias.
 extends:
   - spectral:oas
 
@@ -61,10 +60,11 @@ rules:
       field: application/problem+json
       function: truthy
 
-  # Se revisa sin resolver referencias para comprobar que el schema es
-  # exactamente el componente Problem y no una copia que se desactualiza.
+  # Se revisa sin resolver referencias para comprobar que el schema es un componente
+  # Problem (o una variante con el mismo formato, como RenewalProblem) y no una copia
+  # en línea que se desactualiza.
   biblioteca-problem-schema-ref:
-    description: El schema de application/problem+json referencia a components/schemas/Problem.
+    description: El schema de application/problem+json referencia a un componente *Problem.
     message: El error no referencia el schema Problem.
     severity: error
     resolved: false
@@ -75,7 +75,7 @@ rules:
       - field: $ref
         function: pattern
         functionOptions:
-          match: '#/components/schemas/Problem$'
+          match: '#/components/schemas/[A-Za-z]*Problem$'
 
   # Si una operación recibe datos (parámetros o body), puede recibir datos
   # inválidos. El contrato tiene que decir qué pasa en ese caso.

@@ -19,7 +19,8 @@ full_stack_testing/
 └── docker-compose.yml     Stack completo para pruebas de sistema y DAST
 ```
 
-Dominio de ejemplo: **Biblioteca UC**. Catálogo de libros (SPEC-LIB-01) y préstamos (SPEC-LIB-02).
+Dominio de ejemplo: **Biblioteca UC**. Catálogo de libros (SPEC-LIB-01), préstamos (SPEC-LIB-02)
+y renovación de préstamos (SPEC-LIB-03, reglas RENEW-R*).
 
 ## Backend: capas
 
