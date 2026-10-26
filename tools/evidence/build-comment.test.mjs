@@ -142,6 +142,19 @@ describe('build-comment: comentario completo', () => {
     assert.match(comment, /\| CodeQL \| SAST \| ℹ️ informativo \(ver pestaña Security\) \|/)
   })
 
+  it('muestra la etapa de SonarQube y su quality gate desde el artefacto sonarqube', () => {
+    assert.match(
+      comment,
+      /\| \*\*5 · Calidad de código \(SonarQube\)\*\* .* ✅ `sonarqube` \| ✅ \|$/m,
+    )
+    assert.match(
+      comment,
+      /### 🧹 Calidad de código \(SonarQube\)\n\n✅ \*\*Quality gate aprobada\*\*/,
+    )
+    assert.match(comment, /\| Cobertura de los tests unitarios \| mínimo 80 % \| 86,4 % \| ✅ \|/)
+    assert.match(comment, /Principales issues \(7 de 7, de mayor a menor severidad\)/)
+  })
+
   it('no usa guiones largos ni punto y coma en el texto', () => {
     const text = comment.replace(/<[^>]+>/g, '')
     assert.doesNotMatch(text, /[–—;]/)
@@ -154,6 +167,7 @@ describe('build-comment: artefactos faltantes', () => {
     const comment = buildComment({ artifacts: loadArtifacts(empty), needs: {}, operations: [] })
     assert.match(comment, /No disponible: la etapa no corrió/)
     assert.match(comment, /\| Trivy fs \| SCA, secretos e IaC \| no disponible \|/)
+    assert.match(comment, /_No disponible: el job `sonarqube` no corrió o no dejó resumen\._/)
   })
 
   it('enlaza el video al artefacto cuando el GIF no existe', () => {

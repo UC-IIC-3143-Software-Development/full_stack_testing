@@ -20,8 +20,8 @@ El libro propone separar las pruebas en dos ciclos (cap. 4, p. 126 a 128):
 El ciclo lento espera a que pase toda la calidad de la etapa 2 (lint, tipos, arquitectura,
 contrato, trazabilidad y lint de infraestructura) y los unitarios de la etapa 5: no tiene
 sentido construir y atacar una imagen cuyo código no compila, rompe el contrato o no pasa los
-unitarios. El resto del ciclo rápido (secretos, SAST, dependencias, integración y E2E con mock
-server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Resultado del pipeline".
+unitarios. El resto del ciclo rápido (secretos, SAST, dependencias, SonarQube, integración y E2E con
+mock server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Resultado del pipeline".
 
 ```
  PR abierto o push
@@ -40,6 +40,7 @@ server) corre en paralelo con el ciclo lento y bloquea el PR en el check "Result
         │  3 · SAST ................ Semgrep (registro + .semgrep/), CodeQL │
         │  4 · Dependencias (SCA) .. dependency review, npm audit, Trivy fs │
         │  5 · Unitarios ........... Jest (backend), Vitest + MSW (frontend)│
+        │  5 · SonarQube efímero ... calidad, cobertura y quality gate      │
         │  6 · Integración backend . Testcontainers + supertest vs OpenAPI  │
         │  7 · E2E con mock server . Playwright + MSW (sin backend)         │
         ├──────────────────────────────────────────────────────────────────┘
@@ -83,6 +84,7 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 | 4 | `dependencias` | dependency review, `npm audit --omit=dev` | Dependencias nuevas o actuales con vulnerabilidades conocidas | npm audit con severidad high o mayor. Dependency review es informativo hasta activar Dependency graph en el repo | p. 216 y 226 |
 | 4 | `trivy-fs` | Trivy fs | Vulnerabilidades en lockfiles, secretos y misconfiguraciones | secreto o CRITICAL con parche | p. 226 |
 | 5 | `unit-backend`, `unit-frontend` | Jest, Vitest, Testing Library, MSW | Reglas de negocio y componentes, sin mocks (fakes en memoria) | un test falla | p. 67 y 103 |
+| 5 | `sonarqube` | SonarQube Community en un contenedor temporal, sonar-scanner-cli, `tools/sonarqube/run.mjs` | Bugs, vulnerabilidades, code smells, security hotspots, cobertura y duplicación de todo el repo ([detalle](#sonarqube-efímero-etapa-5)) | la quality gate falla | complementa p. 315 a 317 |
 | 6 | `integracion-backend` | Jest + Testcontainers (PostgreSQL) + supertest | Repositorios contra una base real, respuestas HTTP reales contra el OpenAPI | un test falla | p. 179 |
 | 7 | `e2e-frontend` | Playwright + playwright-bdd + MSW | Flujos de usuario, regresión visual, colores, posición, accesibilidad | un test falla | p. 183 a 195 |
 | 8 | `imagenes` | Docker Compose, Trivy image, CycloneDX | Vulnerabilidades y secretos dentro de la imagen, SBOM | secreto o CRITICAL con parche | p. 226 |
@@ -96,6 +98,7 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
 | --- | --- | --- | --- |
 | **Secretos** | Busca credenciales en el código y en el historial de git | antes del commit (hook) y en cada PR | gitleaks, Trivy secret |
 | **SAST** | *Static Application Security Testing*: analiza el código fuente sin ejecutarlo | en cada PR | Semgrep, CodeQL |
+| **Calidad de código** | Bugs, code smells, duplicación y cobertura de todo el repo, con una quality gate que aprueba o reprueba | en el editor, en el lint y en cada PR | SonarQube for IDE, eslint-plugin-sonarjs, SonarQube efímero |
 | **SCA** | *Software Composition Analysis*: vulnerabilidades y licencias de las dependencias | en cada PR y con Dependabot | dependency review, npm audit, Trivy fs |
 | **IaC y pipeline** | Revisa la infraestructura como código y los propios workflows | en cada PR | hadolint, Trivy misconfig, actionlint, zizmor |
 | **Contenedores** | Vulnerabilidades del sistema operativo y librerías dentro de la imagen | después del build | Trivy image |
@@ -108,8 +111,9 @@ exactamente lo que se prueba con Playwright y se ataca con ZAP.
  ◄──────────────────────────────────────────────────────────────────────────
   editor y      pre-commit      PR (ciclo rápido)        PR (ciclo lento)
   agente IA     .githooks/      secretos, SAST, SCA,     imagen, sistema,
-  (CLAUDE.md)   gitleaks,       lint, unit, contrato,    DAST, rendimiento
-                Prettier        E2E con mocks
+  (CLAUDE.md),  gitleaks,       lint, unit, SonarQube,   DAST, rendimiento
+  SonarQube     Prettier        contrato, E2E con mocks
+  for IDE
 ```
 
 ## Compuertas y umbrales
@@ -124,6 +128,7 @@ puede seguir. Ninguna depende del criterio de quien mira el log.
 | dependency review | severidad high (informativo hasta activar Dependency graph en Settings, Security) | `fail-on-severity` |
 | npm audit | `--audit-level=high` en producción | job `dependencias` |
 | spec-trace | 6 tests por regla y capa como máximo, 0 huérfanos | `--max-per-layer` |
+| SonarQube (quality gate) | 0 bugs, 0 vulnerabilidades, cobertura mínima 80 %, máximo 3 % de líneas duplicadas, nota de mantenibilidad A | `QUALITY_GATE` en `tools/sonarqube/run.mjs` |
 | k6 | p95 menor a 500 ms y menos de 1 % de errores | `tools/perf/k6-smoke.js` |
 | Lighthouse | accesibilidad 0,95 y buenas prácticas 0,9 (error), rendimiento y SEO (aviso) | `frontend/lighthouserc.json` |
 | ZAP | 0 alertas High no ignoradas, 0 reglas FAIL | `tools/zap/rules.tsv` |
@@ -132,6 +137,117 @@ puede seguir. Ninguna depende del criterio de quien mira el log.
 Se bloquea solo lo que tiene parche o es claramente un error. Una vulnerabilidad
 CRITICAL sin versión corregida se informa en el PR, pero no detiene al equipo: no hay
 nada que el equipo pueda hacer hoy más que documentarla.
+
+## SonarQube efímero (etapa 5)
+
+### Qué es SonarQube
+
+SonarQube lee el código sin ejecutarlo (análisis estático) y busca tres tipos de problemas:
+
+- **Bugs**: errores que harán que el programa se comporte mal, por ejemplo una condición que
+  siempre es verdadera o un `if` cuyas dos ramas hacen exactamente lo mismo.
+- **Vulnerabilidades**: código que un atacante podría aprovechar.
+- **Code smells** ("malos olores" del código): código que funciona pero es difícil de leer o
+  de cambiar, como una función muy larga o un `if` dentro de otro `if` dentro de otro. Hoy no es
+  un error, pero hace más probable que alguien introduzca uno mañana.
+
+Además marca los **security hotspots** (código sensible para la seguridad que una persona debe
+revisar, como una expresión regular que podría tardar demasiado con ciertos textos), mide la
+**cobertura** con el lcov que dejan los tests unitarios y la **duplicación** (bloques copiados y
+pegados). Con eso calcula una nota de la A (mejor) a la E para confiabilidad, seguridad y
+mantenibilidad.
+
+### Qué es una quality gate
+
+Es la lista de condiciones mínimas que el código debe cumplir para aprobar, como la nota mínima
+de un ramo: si una condición no se cumple, el job falla y el PR no se puede integrar. La nuestra
+está en `QUALITY_GATE` dentro de [`tools/sonarqube/run.mjs`](../tools/sonarqube/run.mjs):
+
+| Condición | Umbral | Por qué |
+| --- | --- | --- |
+| Bugs | 0 | Un bug que SonarQube ya encontró se corrige antes de integrar |
+| Vulnerabilidades | 0 | Un atacante podría aprovecharla, así que tampoco se integra |
+| Cobertura de los tests unitarios | mínimo 80 % | Hoy es cerca de 86 % (líneas y ramas juntas). El umbral evita retrocesos, no es la meta |
+| Líneas duplicadas | máximo 3 % | Copiar y pegar obliga a corregir el mismo error en varios lugares |
+| Nota de mantenibilidad | A | Corregir los code smells debe tomar menos del 5 % de lo que costó escribir el código |
+
+Las condiciones miran **el código completo**. La quality gate que trae SonarQube (Sonar way)
+mira solo el "código nuevo" desde el análisis anterior, pero aquí cada corrida es un proyecto
+nuevo y no hay análisis anterior con qué comparar.
+
+La cobertura se mide sobre las mismas carpetas que miden Jest y Vitest (dominio y aplicación en
+el backend, componentes y dominio en el frontend). Infraestructura, presentación y rutas se
+prueban con integración, contrato y E2E, que no generan lcov. Qué se analiza, qué cuenta como
+test y qué queda fuera está en [`sonar-project.properties`](../sonar-project.properties).
+
+### Por qué efímero
+
+SonarQube es un servidor: necesita una base de datos y un motor de búsqueda (Elasticsearch).
+Tener uno encendido para el curso cuesta dinero y trabajo (actualizarlo, respaldarlo, protegerlo).
+En vez de eso, el job lo levanta en un contenedor dentro del mismo runner de GitHub Actions, lo
+usa unos minutos y lo borra. No hay nada que pagar ni nada que quede corriendo.
+
+```
+ runner de GitHub Actions (se destruye al terminar el job)
+ ┌──────────────────────────────────────────────────────────────────────────┐
+ │ lcov de unit-backend y unit-frontend (artefactos de la etapa 5)          │
+ │        │                                                                 │
+ │        ▼                                                                 │
+ │ tools/sonarqube/run.mjs                                                  │
+ │   1. docker run sonarqube (Community, gratis)    solo en 127.0.0.1       │
+ │   2. espera /api/system/status = UP                                      │
+ │   3. contraseña aleatoria para admin, token y quality gate por API       │
+ │   4. docker run sonar-scanner-cli con sonar-project.properties           │
+ │   5. quality gate, métricas e issues a reports/sonarqube/summary.json    │
+ │   6. docker rm: el contenedor desaparece                                 │
+ └────────┬─────────────────────────────────────────────────────────────────┘
+          ▼
+ artefacto sonarqube ──► etapa 10: sección "Calidad de código" del comentario del PR
+```
+
+La contraseña de admin se cambia por una aleatoria (y se oculta en el log con `::add-mask::`),
+el token del scanner viaja por variable de entorno y el puerto solo escucha en `127.0.0.1`: nadie
+más puede entrar mientras corre. Las imágenes van fijadas por versión y digest, como el resto
+del pipeline.
+
+Lo que se pierde: no hay historial entre corridas ni gráficos de tendencia, y la interfaz web
+desaparece con el job. La evidencia que queda es la sección del comentario del PR, el resumen
+del job y el artefacto `sonarqube`. Para mirar la interfaz completa, córrelo en tu máquina con
+`--keep`.
+
+### SonarQube for IDE, SonarJS en ESLint, SonarQube y SonarQube Cloud
+
+Las cuatro usan las reglas de SonarJS para JavaScript y TypeScript. Cambian dónde corren y qué
+ven.
+
+| | SonarQube for IDE (antes SonarLint) | eslint-plugin-sonarjs (etapa 2) | SonarQube efímero (etapa 5) | SonarQube Cloud |
+| --- | --- | --- | --- | --- |
+| Dónde corre | en tu editor (VS Code, JetBrains) | dentro de ESLint, con `npm run lint` | en un contenedor temporal del runner | en los servidores de Sonar |
+| Cuándo te avisa | mientras escribes | cuando corres `npm run lint` y en cada PR | en cada PR | en cada PR |
+| Qué ve | el archivo abierto | archivo por archivo | todo el repo: cobertura, duplicación y quality gate | todo el repo, más historial y comentarios en el PR |
+| Qué necesitas | instalar la extensión | nada, viene en `npm ci` | nada, solo minutos de Actions | una cuenta, conectar la organización de GitHub y el secreto `SONAR_TOKEN` |
+| Costo | gratis | gratis | gratis | gratis para repos públicos |
+
+Usa SonarQube for IDE para corregir mientras escribes, el lint para no subir el problema y
+SonarQube en el PR para la foto completa. SonarQube Cloud sirve si quieres historial y no te
+molesta crear la cuenta. Aquí preferimos que el repo funcione sin cuentas ni secretos externos.
+
+### Correrlo en tu máquina
+
+```bash
+(cd backend && npm run test:unit) && (cd frontend && npm run test:unit)   # lcov en reports/coverage
+node tools/sonarqube/run.mjs                 # puerto 19000, borra todo al terminar
+node tools/sonarqube/run.mjs --port 19500    # si el 19000 está ocupado
+cat reports/sonarqube/summary.md
+
+# Para mirar la interfaz web: elige tu contraseña y deja el contenedor arriba
+SONAR_ADMIN_PASSWORD='UnaClaveLarga#2026' node tools/sonarqube/run.mjs --keep
+```
+
+Necesitas Docker con unos 3 GB de RAM libres. Las dos imágenes se descargan una vez (1,5 GB) y
+ocupan unos 2,5 GB en disco. Revisa que tengas espacio de sobra antes de partir: si el disco se
+llena a mitad del análisis, Docker Desktop puede quedar en modo de solo lectura y hay que
+reiniciarlo.
 
 ## Seguridad del propio pipeline
 
@@ -163,6 +279,7 @@ secretos de miles de repositorios en los logs. Por eso:
    contrato-backend/      contract-coverage.json
    api-smoke/             endpoints.json
    schemathesis/          junit.xml
+   sonarqube/             summary.json (quality gate, métricas e issues)
    semgrep/ trivy-*/ zap/ gitleaks/ lighthouse/ k6/ spec-trace/
             │
             ▼  etapa 10
@@ -252,6 +369,10 @@ docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --co
 (cd .semgrep && semgrep --test .)        # tests de las reglas propias
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
 pipx run zizmor .github/
+
+# SonarQube efímero (necesita la cobertura de los unitarios)
+(cd backend && npm run test:unit) && (cd frontend && npm run test:unit)
+node tools/sonarqube/run.mjs             # resumen en reports/sonarqube/summary.md
 ```
 
 Si en tu Docker Desktop `--network host` no llega a los puertos de tu máquina, quita esa

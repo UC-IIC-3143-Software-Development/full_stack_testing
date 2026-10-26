@@ -35,6 +35,7 @@ full_stack_testing/
 │   ├── seed-stack.mjs         siembra los datos de prueba por la API pública
 │   ├── evidence/              GIF, publicación en la rama evidence y comentario del PR
 │   ├── perf/k6-smoke.js       prueba de humo de rendimiento
+│   ├── sonarqube/             SonarQube efímero: levanta, analiza, exporta el resumen y borra
 │   └── zap/                   reglas de OWASP ZAP y compuerta de alertas
 ├── .github/workflows/         ci.yml, nightly.yml, ai-review.yml, ai-generate-tests.yml,
 │                              visual-baselines.yml
@@ -43,6 +44,7 @@ full_stack_testing/
 ├── .spectral.yaml             reglas de estilo del contrato
 ├── .gitleaks.toml             configuración de detección de secretos
 ├── .hadolint.yaml             configuración del lint de Dockerfiles
+├── sonar-project.properties   qué analiza SonarQube: código, tests, exclusiones y cobertura
 ├── docker-compose.yml         stack completo: PostgreSQL, backend y frontend
 └── docs/                      pipeline explicado y ejemplo del comentario de evidencia
 ```
@@ -99,6 +101,7 @@ npm run lint:openapi        # Spectral sobre specs/api/openapi.yaml
 npm run spec:trace          # cada regla con tests, sin huérfanos, máximo 6 por regla y capa
 npm run test:tools          # tests de tools/
 npm run evidence:example    # regenera docs/ejemplo-comentario-pr.md
+node tools/sonarqube/run.mjs # SonarQube efímero en Docker (antes: npm run test:unit en cada app)
 npm run hooks:install       # activa .githooks/pre-commit (git config core.hooksPath .githooks)
 ```
 
@@ -139,6 +142,7 @@ variantes del mismo caso.
 | Arquitectura | Las capas respetan sus dependencias (ARCH-R1 a ARCH-R8) | dependency-cruiser | `npm run test:arch` | 2 | p. 315 |
 | Lint del contrato | El OpenAPI está completo y no rompe clientes | Spectral, oasdiff | `.spectral.yaml` | 2 | p. 70 |
 | Trazabilidad | Reglas con tests, sin huérfanos, dentro del presupuesto | `tools/spec-trace.mjs` | `tools/` | 2 | p. 72 y 114 |
+| Calidad de código | Bugs, vulnerabilidades, code smells (código difícil de mantener), cobertura y duplicación de todo el repo, con una quality gate que aprueba o reprueba | SonarQube Community efímero (contenedor temporal en el runner) | `sonar-project.properties`, `tools/sonarqube/` | 5 | complementa p. 315 a 317 |
 | Secretos | Credenciales en el código o el historial | gitleaks (hook y CI) | `.githooks/`, `.gitleaks.toml` | 1 | p. 238 |
 | SAST | Código vulnerable y violaciones de las specs | Semgrep, CodeQL | `.semgrep/` | 3 | p. 225 |
 | SCA | Dependencias con vulnerabilidades conocidas | dependency review, npm audit, Trivy fs | `ci.yml` | 4 | p. 216 y 226 |
@@ -191,6 +195,10 @@ En cada PR la etapa 10 deja (y actualiza en cada push) un comentario con:
    Schemathesis.
 4. **Seguridad y calidad**: gitleaks, Semgrep, CodeQL, dependencias, Trivy (por
    severidad), ZAP (por riesgo), Lighthouse, k6 y trazabilidad.
+5. **Calidad de código (SonarQube)**: si la quality gate aprobó, cada condición con su valor,
+   las métricas (bugs, vulnerabilidades, code smells, cobertura, duplicación) y los principales
+   issues. SonarQube se borra al terminar el job, así que esta sección y el artefacto `sonarqube`
+   son la evidencia. Qué es cada cosa y por qué es efímero: [`docs/pipeline.md`](docs/pipeline.md#sonarqube-efímero-etapa-5).
 
 Las imágenes viven en la rama huérfana `evidence` (`pr-<número>/<run_id>/`) y los
 reportes completos (HTML de Playwright, ZAP y Lighthouse, SBOM) quedan como artefactos

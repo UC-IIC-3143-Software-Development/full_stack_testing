@@ -5,14 +5,15 @@
 #                │    Spectral, oasdiff, spec-trace, hadolint, zizmor)      │
 #   0 Cambios ───┼─ 3 SAST (Semgrep, CodeQL)                                ├─► 10 Evidencia en el PR
 #                ├─ 4 Dependencias (dependency review, npm audit, Trivy fs) │   y Resultado
-#                ├─ 5 Unitarios ──┐                                         │
+#                ├─ 5 Unitarios ──┬─► 5 SonarQube efímero (quality gate)    │
 #                ├─ 6 Integración y contrato backend (Testcontainers)       │
 #                ├─ 7 E2E frontend con mock server (MSW)                    │
 #                └────────────────┴─► 8 Build e imágenes ─► 9 Sistema y DAST┘
 #
 # Primer ciclo de feedback (etapas 1 a 7): código estático y pruebas que no necesitan
 # desplegar nada. Segundo ciclo (etapas 8 y 9): la aplicación construida y corriendo.
-# La etapa 8 espera a las etapas 2 y 5 en verde: el ciclo lento no parte si el rápido falla.
+# La etapa 8 espera a la etapa 2 y a los unitarios de la etapa 5 en verde: el ciclo lento no
+# parte si el rápido falla. SonarQube (también etapa 5) corre en paralelo y bloquea en Resultado.
 # Libro Full Stack Testing, cap. 4, p. 126 a 128.
 name: CI
 
@@ -75,6 +76,7 @@ jobs:
               - '.spectral.yaml'
               - '.gitleaks.toml'
               - '.hadolint.yaml'
+              - 'sonar-project.properties'
               - '.prettierrc.json'
               - '.editorconfig'
 
@@ -581,6 +583,76 @@ jobs:
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
+  # Etapa 5 · SonarQube efímero: calidad de código, cobertura y quality gate.
+  # SonarQube Community corre en un contenedor temporal de este mismo runner y desaparece
+  # al terminar el job: no hay servidor que pagar ni que mantener. tools/sonarqube/run.mjs
+  # lo levanta, cambia la contraseña de admin por una aleatoria, crea un token y la quality
+  # gate (las condiciones mínimas de calidad), analiza con sonar-project.properties y exporta
+  # el resumen. Es el mismo comando que corres en tu máquina.
+  # ---------------------------------------------------------------------------
+  sonarqube:
+    name: 5 · SonarQube efímero (calidad, cobertura y quality gate)
+    needs: [cambios, unit-backend, unit-frontend]
+    # Corre si alguna app cambió y ningún unitario falló. Un unitario omitido (su app no
+    # cambió) no deja lcov: este job lo genera en el paso "Generar la cobertura que falte"
+    if: ${{ !cancelled() && needs.cambios.outputs.stack == 'true' && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      # Se reutiliza la cobertura de unit-backend y unit-frontend: no se corren dos veces.
+      # Si la app no cambió en el PR, el artefacto no existe y el paso sigue sin error
+      - name: Descargar la cobertura del backend (etapa 5)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cobertura-backend
+          path: backend
+      - name: Descargar la cobertura del frontend (etapa 5)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cobertura-frontend
+          path: frontend
+      # SonarQube usa los tipos de node_modules para entender el código TypeScript
+      - name: Instalar las dependencias de las apps
+        run: |
+          (cd backend && npm ci)
+          (cd frontend && npm ci)
+      - name: Generar la cobertura que falte
+        run: |
+          for app in backend frontend
+          do
+            if [ ! -f "$app/reports/coverage/lcov.info" ]
+            then
+              echo "::group::npm run test:unit en $app (sin artefacto de cobertura)"
+              (cd "$app" && npm run test:unit)
+              echo "::endgroup::"
+            fi
+          done
+      - name: SonarQube efímero (levantar, analizar, exportar y borrar)
+        run: node tools/sonarqube/run.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: sonarqube
+          path: |
+            reports/sonarqube/summary.json
+            reports/sonarqube/summary.md
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
   # Etapa 6 · Integración y contrato del backend con PostgreSQL real (Testcontainers)
   # ---------------------------------------------------------------------------
   integracion-backend:
@@ -986,6 +1058,7 @@ jobs:
       - trivy-fs
       - unit-backend
       - unit-frontend
+      - sonarqube
       - integracion-backend
       - e2e-frontend
       - imagenes
@@ -1011,7 +1084,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
-          pattern: '{evidencia-*,contrato-backend,api-smoke,schemathesis,semgrep,trivy-*,zap,gitleaks,lighthouse,k6,spec-trace}'
+          pattern: '{evidencia-*,contrato-backend,api-smoke,schemathesis,semgrep,trivy-*,zap,gitleaks,lighthouse,k6,spec-trace,sonarqube}'
       # La evidencia es opcional: si falla el GIF o la publicación, el comentario sale igual
       # (sin imágenes) con los endpoints y la seguridad
       - name: Convertir los videos de Playwright a GIF
@@ -1087,6 +1160,7 @@ jobs:
       - trivy-fs
       - unit-backend
       - unit-frontend
+      - sonarqube
       - integracion-backend
       - e2e-frontend
       - imagenes

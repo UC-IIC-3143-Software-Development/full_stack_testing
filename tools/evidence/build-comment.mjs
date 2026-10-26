@@ -3,7 +3,8 @@
 //
 // Junta los artefactos que dejaron las otras etapas y los resume en un solo
 // comentario en español: estado de cada etapa DevSecOps, GIF y capturas de los
-// flujos de usuario, endpoints verificados en el backend y hallazgos de seguridad.
+// flujos de usuario, endpoints verificados en el backend, hallazgos de seguridad y
+// calidad de código (SonarQube).
 // Todo es opcional: si falta un artefacto, su sección dice "no disponible".
 //
 // Uso:
@@ -18,6 +19,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parse as parseYaml } from 'yaml'
+import { renderSummaryMarkdown } from '../sonarqube/report.mjs'
 
 export const MARKER = '<!-- ci-evidence -->'
 
@@ -43,6 +45,12 @@ export const STAGES = [
     name: 'Tests unitarios',
     what: 'dominio y aplicación sin mocks, componentes con MSW',
     jobs: ['unit-backend', 'unit-frontend'],
+  },
+  {
+    n: 5,
+    name: 'Calidad de código (SonarQube)',
+    what: 'SonarQube efímero: bugs, vulnerabilidades, code smells, cobertura, duplicación y quality gate',
+    jobs: ['sonarqube'],
   },
   {
     n: 6,
@@ -151,6 +159,8 @@ export function loadArtifacts(dir) {
   }
 
   const junitFile = findFile(files, /schemathesis[^]*\.xml$/) ?? findFile(files, 'junit.xml')
+  // Con la carpeta del artefacto: otras herramientas también podrían dejar un summary.json
+  const sonarqubeFile = findFile(files, /sonarqube[\\/]summary\.json$/)
 
   return {
     files,
@@ -169,6 +179,7 @@ export function loadArtifacts(dir) {
     lighthouse,
     k6: json('k6-summary.json'),
     specTrace: json('spec-trace.json'),
+    sonarqube: sonarqubeFile ? readJson(sonarqubeFile) : null,
   }
 }
 
@@ -573,6 +584,18 @@ function securitySection(artifacts, needs) {
   return [...lines, ...details]
 }
 
+function sonarqubeSection(summary) {
+  if (!summary?.qualityGate) {
+    return [
+      '### 🧹 Calidad de código (SonarQube)',
+      '',
+      '_No disponible: el job `sonarqube` no corrió o no dejó resumen._',
+      '',
+    ]
+  }
+  return renderSummaryMarkdown(summary)
+}
+
 // ---------------------------------------------------------------------------
 // Comentario completo
 // ---------------------------------------------------------------------------
@@ -608,6 +631,7 @@ export function buildComment({
     ...frontendSection(artifacts, { baseUrl, runUrl, example, openItems: 3 }),
     ...backendSection(artifacts, operations),
     ...securitySection(artifacts, needs),
+    ...sonarqubeSection(artifacts.sonarqube),
     '---',
     '_Generado por la etapa 10 de `.github/workflows/ci.yml`. Este comentario se actualiza en cada push del PR. ' +
       'Las imágenes viven en la rama `evidence`._',

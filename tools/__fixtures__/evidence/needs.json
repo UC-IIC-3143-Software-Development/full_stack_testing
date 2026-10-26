@@ -12,6 +12,7 @@
   "trivy-fs": { "result": "success", "outputs": {} },
   "unit-backend": { "result": "success", "outputs": {} },
   "unit-frontend": { "result": "success", "outputs": {} },
+  "sonarqube": { "result": "success", "outputs": {} },
   "integracion-backend": { "result": "success", "outputs": {} },
   "e2e-frontend": { "result": "success", "outputs": {} },
   "imagenes": { "result": "success", "outputs": {} },

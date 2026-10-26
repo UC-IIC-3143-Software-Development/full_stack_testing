@@ -1,0 +1,139 @@
+{
+  "project": {
+    "key": "biblioteca-uc",
+    "name": "Biblioteca UC"
+  },
+  "serverVersion": "26.10.0.133078",
+  "qualityGate": {
+    "name": "Biblioteca UC",
+    "status": "OK",
+    "conditions": [
+      {
+        "metric": "bugs",
+        "label": "Bugs",
+        "comparator": "GT",
+        "threshold": "0",
+        "actual": "0",
+        "status": "OK"
+      },
+      {
+        "metric": "vulnerabilities",
+        "label": "Vulnerabilidades",
+        "comparator": "GT",
+        "threshold": "0",
+        "actual": "0",
+        "status": "OK"
+      },
+      {
+        "metric": "coverage",
+        "label": "Cobertura de los tests unitarios",
+        "comparator": "LT",
+        "threshold": "80",
+        "actual": "86.4",
+        "status": "OK"
+      },
+      {
+        "metric": "duplicated_lines_density",
+        "label": "Líneas duplicadas",
+        "comparator": "GT",
+        "threshold": "3",
+        "actual": "0.6",
+        "status": "OK"
+      },
+      {
+        "metric": "sqale_rating",
+        "label": "Nota de mantenibilidad",
+        "comparator": "GT",
+        "threshold": "1",
+        "actual": "1",
+        "status": "OK"
+      }
+    ]
+  },
+  "metrics": {
+    "bugs": 0,
+    "vulnerabilities": 0,
+    "code_smells": 7,
+    "security_hotspots": 1,
+    "coverage": 86.4,
+    "duplicated_lines_density": 0.6,
+    "ncloc": 3412,
+    "reliability_rating": "A",
+    "security_rating": "A",
+    "sqale_rating": "A"
+  },
+  "issues": {
+    "total": 7,
+    "top": [
+      {
+        "severity": "CRITICAL",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S3776",
+        "message": "Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.",
+        "file": "frontend/src/features/catalog/components/NewBookForm.tsx",
+        "line": 29
+      },
+      {
+        "severity": "MAJOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S3358",
+        "message": "Extract this nested ternary operation into an independent statement.",
+        "file": "frontend/src/features/loans/components/LoanList.tsx",
+        "line": 41
+      },
+      {
+        "severity": "MAJOR",
+        "type": "CODE_SMELL",
+        "rule": "css:S4666",
+        "message": "Unexpected duplicate selector \".grid\", first used at line 5",
+        "file": "frontend/src/features/catalog/components/BookList.module.css",
+        "line": 22
+      },
+      {
+        "severity": "MINOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S6759",
+        "message": "Mark the props of the component as read-only.",
+        "file": "frontend/src/features/catalog/components/BookCard.tsx",
+        "line": 12
+      },
+      {
+        "severity": "MINOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S6759",
+        "message": "Mark the props of the component as read-only.",
+        "file": "frontend/src/features/loans/components/BorrowForm.tsx",
+        "line": 18
+      },
+      {
+        "severity": "MINOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S4325",
+        "message": "This assertion is unnecessary since it does not change the type of the expression.",
+        "file": "backend/src/loans/application/renew-loan.ts",
+        "line": 57
+      },
+      {
+        "severity": "MINOR",
+        "type": "CODE_SMELL",
+        "rule": "typescript:S1128",
+        "message": "Remove this unused import of 'BookError'.",
+        "file": "backend/src/books/domain/book.ts",
+        "line": 3
+      }
+    ]
+  },
+  "hotspots": {
+    "total": 1,
+    "top": [
+      {
+        "probability": "MEDIUM",
+        "category": "dos",
+        "rule": "typescript:S5852",
+        "message": "Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service.",
+        "file": "backend/src/books/domain/isbn.ts",
+        "line": 8
+      }
+    ]
+  }
+}

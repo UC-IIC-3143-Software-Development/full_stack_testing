@@ -13,6 +13,7 @@
 | **3 · SAST** | Semgrep y CodeQL | ✅ `semgrep` ✅ `codeql` | ✅ |
 | **4 · Dependencias (SCA)** | dependency review, npm audit, Trivy fs | ✅ `dependencias` ✅ `trivy-fs` | ✅ |
 | **5 · Tests unitarios** | dominio y aplicación sin mocks, componentes con MSW | ✅ `unit-backend` ✅ `unit-frontend` | ✅ |
+| **5 · Calidad de código (SonarQube)** | SonarQube efímero: bugs, vulnerabilidades, code smells, cobertura, duplicación y quality gate | ✅ `sonarqube` | ✅ |
 | **6 · Integración y contrato backend** | Testcontainers (PostgreSQL) y supertest contra el OpenAPI | ✅ `integracion-backend` | ✅ |
 | **7 · E2E frontend con mock server** | Playwright + MSW: flujos, visual, estilos, layout y a11y | ✅ `e2e-frontend` | ✅ |
 | **8 · Build e imágenes** | docker build, Trivy image, SBOM | ✅ `imagenes` | ✅ |
@@ -140,6 +141,56 @@ Smoke: 19 de 19 verificaciones OK en 65 ms.
 
 - **Medium** Content Security Policy (CSP) Header Not Set (2)
 - **High** SQL Injection (1)
+
+</details>
+
+### 🧹 Calidad de código (SonarQube)
+
+✅ **Quality gate aprobada** (`Biblioteca UC`) · SonarQube Community 26.10.0.133078
+
+La quality gate es la lista de condiciones mínimas que el código debe cumplir para aprobar. SonarQube corrió en un contenedor temporal que se borró al terminar el job: este resumen y el artefacto `sonarqube` son la evidencia.
+
+| Condición | Umbral | Valor | Estado |
+| --- | --- | --- | :---: |
+| Bugs | máximo 0 | 0 | ✅ |
+| Vulnerabilidades | máximo 0 | 0 | ✅ |
+| Cobertura de los tests unitarios | mínimo 80 % | 86,4 % | ✅ |
+| Líneas duplicadas | máximo 3 % | 0,6 % | ✅ |
+| Nota de mantenibilidad | A o mejor | A | ✅ |
+
+| Métrica | Valor |
+| --- | --- |
+| Líneas de código | 3.412 |
+| Bugs | 0 (confiabilidad A) |
+| Vulnerabilidades | 0 (seguridad A) |
+| Code smells | 7 (mantenibilidad A) |
+| Security hotspots por revisar | 1 |
+| Cobertura de los tests unitarios | 86,4 % |
+| Líneas duplicadas | 0,6 % |
+
+Las notas van de A (mejor) a E. Un code smell es código que funciona pero es difícil de leer o de cambiar.
+
+<details><summary>Principales issues (7 de 7, de mayor a menor severidad)</summary>
+
+| Severidad | Tipo | Dónde | Mensaje | Regla |
+| --- | --- | --- | --- | --- |
+| crítica | Code smell | `frontend/src/features/catalog/components/NewBookForm.tsx:29` | Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed. | `typescript:S3776` |
+| mayor | Code smell | `frontend/src/features/loans/components/LoanList.tsx:41` | Extract this nested ternary operation into an independent statement. | `typescript:S3358` |
+| mayor | Code smell | `frontend/src/features/catalog/components/BookList.module.css:22` | Unexpected duplicate selector ".grid", first used at line 5 | `css:S4666` |
+| menor | Code smell | `frontend/src/features/catalog/components/BookCard.tsx:12` | Mark the props of the component as read-only. | `typescript:S6759` |
+| menor | Code smell | `frontend/src/features/loans/components/BorrowForm.tsx:18` | Mark the props of the component as read-only. | `typescript:S6759` |
+| menor | Code smell | `backend/src/loans/application/renew-loan.ts:57` | This assertion is unnecessary since it does not change the type of the expression. | `typescript:S4325` |
+| menor | Code smell | `backend/src/books/domain/book.ts:3` | Remove this unused import of 'BookError'. | `typescript:S1128` |
+
+</details>
+
+<details><summary>Security hotspots por revisar (1 de 1)</summary>
+
+Un security hotspot es código sensible para la seguridad que una persona debe revisar. No siempre es una vulnerabilidad.
+
+| Probabilidad | Dónde | Mensaje | Regla |
+| --- | --- | --- | --- |
+| media | `backend/src/books/domain/isbn.ts:8` | Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service. | `typescript:S5852` |
 
 </details>
 
