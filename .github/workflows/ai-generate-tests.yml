@@ -79,7 +79,7 @@ jobs:
 
       - name: Proponer plan y tests con Claude
         if: env.HAS_ANTHROPIC_KEY == 'true'
-        uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
+        uses: anthropics/claude-code-action@9eb012b6d0900c2b9eede65ee1758cec4d2973e9 # v1.0.270
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
@@ -119,7 +119,7 @@ jobs:
 
       - name: Abrir PR en borrador con la propuesta
         if: env.HAS_ANTHROPIC_KEY == 'true'
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8.1.2
         with:
           token: ${{ github.token }}
           branch: ia/tests-${{ inputs.operationId }}-${{ github.run_number }}
