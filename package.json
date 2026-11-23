@@ -22,8 +22,8 @@
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
-    "@stoplight/spectral-cli": "^6.17.0",
-    "prettier": "^3.9.10",
+    "@stoplight/spectral-cli": "^6.17.1",
+    "prettier": "^3.10.1",
     "yaml": "^2.9.1"
   }
 }
